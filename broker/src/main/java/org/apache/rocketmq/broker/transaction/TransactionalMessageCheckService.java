@@ -22,6 +22,10 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 事务消息检查服务：提供了事务消息回查的逻辑。
+ * 默认情况下，6秒以上未commit/rollback的事务消息才会触发事务回查，而如果回查次数超过15次则丢弃事务。
+ */
 public class TransactionalMessageCheckService extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.TRANSACTION_LOGGER_NAME);
 

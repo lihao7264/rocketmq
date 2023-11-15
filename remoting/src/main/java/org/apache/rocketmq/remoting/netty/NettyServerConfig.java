@@ -16,26 +16,81 @@
  */
 package org.apache.rocketmq.remoting.netty;
 
+/**
+ * NettyServer的配置类
+ *  NameServer、Broker作为服务端时 使用的各种属性
+ */
 public class NettyServerConfig implements Cloneable {
+    /**
+     * 监听端口
+     * NameServer监听端口：9876
+     * Broker监听端口（即客户端与Broker通信，remotingServer）：10911
+     * 高可用通信监听端口（haListenPort）：Broker监听端口（普通服务的端口）+1（默认值：10912）
+     * 快速Netty远程服务（fastRemotingServer）的配置监听的端口号：Broker监听端口（普通服务的端口）-2（即10909）
+     */
     private int listenPort = 8888;
+    /**
+     * Netty远程通信执行器线程池（业务线程池） 的线程数
+     * 默认值：8个
+     */
     private int serverWorkerThreads = 8;
+    /**
+     * 服务器回调执行线程数，默认值为4
+     * Netty public任务线程池线程个数
+     * 根据业务类型会创建不同的线程池（比如：处理消息发送、消息消费、心跳检测等）。
+     * 如果该业务类型（RequestCode）未注册线程池，则由public线程池执行。
+     */
     private int serverCallbackExecutorThreads = 0;
+    /**
+     * server的work线程组数（IO 线程池线程个数）
+     * 默认值：3个线程
+     * NameServer、Broker端解析请求、返回相应的线程个数
+     * 这类线程主要用于处理网络请求、解析请求包，再转发到各个业务线程池完成具体的业务操作，再将结果再返回调用方。
+     */
     private int serverSelectorThreads = 3;
+    /**
+     * oneway 消息请求井发度（ Broker 端参数）
+     * 默认值：256
+     */
     private int serverOnewaySemaphoreValue = 256;
+    /**
+     * 异步消息发送最大并发度（ Broker 端参数）
+     *  默认值：64
+     */
     private int serverAsyncSemaphoreValue = 64;
-    private int serverChannelMaxIdleTimeSeconds = 120;
 
+    /**
+     * 网络连接最大空闲时间
+     * 测试端一定时间内未接受到被测试端消息和一定时间内向被测试端发送消息的超时时间为120秒（最大心跳时间、 最大空闲时间）
+     * 默认值：120s 。
+     * 如果连接空闲时间超过该参数设置的值，连接将被关闭。
+     */
+    private int serverChannelMaxIdleTimeSeconds = 120;
+    /**
+     * 网络socket发送缓存区大小，
+     * 默认值：64k（65535）
+     */
     private int serverSocketSndBufSize = NettySystemConfig.socketSndbufSize;
+    /**
+     * 网络 socket接收缓存区大小
+     * 默认值：64k（65535）
+     */
     private int serverSocketRcvBufSize = NettySystemConfig.socketRcvbufSize;
     private int writeBufferHighWaterMark = NettySystemConfig.writeBufferHighWaterMark;
     private int writeBufferLowWaterMark = NettySystemConfig.writeBufferLowWaterMark;
     private int serverSocketBacklog = NettySystemConfig.socketBacklog;
+    /**
+     * ByteBuffer 是否开启缓存
+     * 默认开启
+     * 建议开启。
+     */
     private boolean serverPooledByteBufAllocatorEnable = true;
 
     /**
+     * 是否启用Epoll IO 模型
+     * Linux 环境建议开启
+     * 默认不启用
      * make install
-     *
-     *
      * ../glibc-2.10.1/configure \ --prefix=/usr \ --with-headers=/usr/include \
      * --host=x86_64-linux-gnu \ --build=x86_64-pc-linux-gnu \ --without-gd
      */

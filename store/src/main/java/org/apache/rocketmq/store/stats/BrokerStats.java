@@ -21,17 +21,32 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.DefaultMessageStore;
 
+/**
+ *  broker的统计服务类
+ */
 public class BrokerStats {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
 
     private final DefaultMessageStore defaultMessageStore;
 
+    /**
+     * 昨天生产的消息数
+     */
     private volatile long msgPutTotalYesterdayMorning;
 
+    /**
+     * 今天存储（生产）的消息数
+     */
     private volatile long msgPutTotalTodayMorning;
 
+    /**
+     * 昨天消费的消息数
+     */
     private volatile long msgGetTotalYesterdayMorning;
 
+    /**
+     * 今天消费的消息数
+     */
     private volatile long msgGetTotalTodayMorning;
 
     public BrokerStats(DefaultMessageStore defaultMessageStore) {
@@ -43,9 +58,9 @@ public class BrokerStats {
         this.msgGetTotalYesterdayMorning = this.msgGetTotalTodayMorning;
 
         this.msgPutTotalTodayMorning =
-            this.defaultMessageStore.getStoreStatsService().getPutMessageTimesTotal();
+                this.defaultMessageStore.getStoreStatsService().getPutMessageTimesTotal();
         this.msgGetTotalTodayMorning =
-            this.defaultMessageStore.getStoreStatsService().getGetMessageTransferedMsgCount().longValue();
+                this.defaultMessageStore.getStoreStatsService().getGetMessageTransferedMsgCount().longValue();
 
         log.info("yesterday put message total: {}", msgPutTotalTodayMorning - msgPutTotalYesterdayMorning);
         log.info("yesterday get message total: {}", msgGetTotalTodayMorning - msgGetTotalYesterdayMorning);
@@ -83,6 +98,7 @@ public class BrokerStats {
         this.msgGetTotalTodayMorning = msgGetTotalTodayMorning;
     }
 
+    // msgPutTotalTodayNow：现在存储的消息数
     public long getMsgPutTotalTodayNow() {
         return this.defaultMessageStore.getStoreStatsService().getPutMessageTimesTotal();
     }

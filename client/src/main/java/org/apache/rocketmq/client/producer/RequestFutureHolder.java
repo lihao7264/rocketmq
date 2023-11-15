@@ -71,15 +71,20 @@ public class RequestFutureHolder {
         }
     }
 
+    /**
+     * 启动一个定时任务：移除超时的请求 并 执行异常回调
+     * 任务间隔：1s
+     */
     public synchronized void startScheduledTask(DefaultMQProducerImpl producer) {
         this.producerSet.add(producer);
         if (null == scheduledExecutorService) {
             this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("RequestHouseKeepingService"));
-
+            // 任务间隔：1s
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
                     try {
+                        // 移除超时的请求 并 执行异常回调
                         RequestFutureHolder.getInstance().scanExpiredRequest();
                     } catch (Throwable e) {
                         log.error("scan RequestFutureTable exception", e);

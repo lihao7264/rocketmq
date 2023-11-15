@@ -18,16 +18,37 @@ package org.apache.rocketmq.store.config;
 
 import java.io.File;
 
+/**
+ * 存储路径帮助工具类
+ */
 public class StorePathConfigHelper {
 
+    /**
+     * ConsumeQueue的文件存储地址
+     * {storePathRootDir}/consumequeue
+     * @param rootDir
+     * @return
+     */
     public static String getStorePathConsumeQueue(final String rootDir) {
         return rootDir + File.separator + "consumequeue";
     }
 
+    /**
+     * ConsumeQueueExt 的文件存储地址
+     * {storePathRootDir}/consumequeue_ext
+     * @param rootDir
+     * @return
+     */
     public static String getStorePathConsumeQueueExt(final String rootDir) {
         return rootDir + File.separator + "consumequeue_ext";
     }
 
+    /**
+     * IndexFile的文件存储地址
+     * {storePathRootDir}/index
+     * @param rootDir
+     * @return
+     */
     public static String getStorePathIndex(final String rootDir) {
         return rootDir + File.separator + "index";
     }

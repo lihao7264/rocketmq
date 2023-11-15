@@ -27,36 +27,60 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * StoreCheckpoint记录着commitLog、ConsumeQueue、Index文件的最后更新时间点
+ * 作用：当上一次broker是异常结束时，会根据StoreCheckpoint的数据进行恢复，这决定着文件从哪里开始恢复，甚至是删除文件
+ */
 public class StoreCheckpoint {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private final RandomAccessFile randomAccessFile;
     private final FileChannel fileChannel;
     private final MappedByteBuffer mappedByteBuffer;
+    /**
+     * 最新commitlog文件的刷盘时间戳，单位毫秒。
+     */
     private volatile long physicMsgTimestamp = 0;
+    /**
+     * 最新consumeQueue文件的刷盘时间戳，单位毫秒。
+     */
     private volatile long logicsMsgTimestamp = 0;
+    /**
+     * 创建最新indexFile文件的时间戳，单位毫秒。
+     */
     private volatile long indexMsgTimestamp = 0;
 
+    /**
+     * 创建StoreCheckpoint检查点对象
+     *  加载checkpoint 检查点文件（文件位置：{storePathRootDir}/checkpoint），创建storeCheckpoint对象。
+     * @param scpPath
+     * @throws IOException
+     */
     public StoreCheckpoint(final String scpPath) throws IOException {
         File file = new File(scpPath);
+        // 判断存在当前文件
         MappedFile.ensureDirOK(file.getParent());
         boolean fileExists = file.exists();
-
+        // 对checkpoint文件执行mmap操作
         this.randomAccessFile = new RandomAccessFile(file, "rw");
         this.fileChannel = this.randomAccessFile.getChannel();
+        // mmap大小为OS_PAGE_SIZE（即OS一页：4k）
         this.mappedByteBuffer = fileChannel.map(MapMode.READ_WRITE, 0, MappedFile.OS_PAGE_SIZE);
 
         if (fileExists) {
             log.info("store checkpoint file exists, " + scpPath);
+            // 获取commitlog文件的时间戳（即最新commitlog文件的刷盘时间戳）
             this.physicMsgTimestamp = this.mappedByteBuffer.getLong(0);
+            // 获取consumeQueue文件的时间戳（即最新consumeQueue文件的刷盘时间戳）
             this.logicsMsgTimestamp = this.mappedByteBuffer.getLong(8);
+            // 获取index文件的时间戳（即创建最新indexFile文件的时间戳）
             this.indexMsgTimestamp = this.mappedByteBuffer.getLong(16);
 
             log.info("store checkpoint file physicMsgTimestamp " + this.physicMsgTimestamp + ", "
-                + UtilAll.timeMillisToHumanString(this.physicMsgTimestamp));
+                    + UtilAll.timeMillisToHumanString(this.physicMsgTimestamp));
             log.info("store checkpoint file logicsMsgTimestamp " + this.logicsMsgTimestamp + ", "
-                + UtilAll.timeMillisToHumanString(this.logicsMsgTimestamp));
+                    + UtilAll.timeMillisToHumanString(this.logicsMsgTimestamp));
             log.info("store checkpoint file indexMsgTimestamp " + this.indexMsgTimestamp + ", "
-                + UtilAll.timeMillisToHumanString(this.indexMsgTimestamp));
+                    + UtilAll.timeMillisToHumanString(this.indexMsgTimestamp));
         } else {
             log.info("store checkpoint file not exists, " + scpPath);
         }

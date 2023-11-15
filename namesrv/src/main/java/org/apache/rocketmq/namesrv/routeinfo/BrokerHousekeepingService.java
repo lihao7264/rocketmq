@@ -23,6 +23,9 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.namesrv.NamesrvController;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 
+/**
+ * Broker连接的各种事件的处理服务：处理Broker连接发生变化的服务
+ */
 public class BrokerHousekeepingService implements ChannelEventListener {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final NamesrvController namesrvController;
@@ -30,23 +33,26 @@ public class BrokerHousekeepingService implements ChannelEventListener {
     public BrokerHousekeepingService(NamesrvController namesrvController) {
         this.namesrvController = namesrvController;
     }
-
+    //连接事件，不处理
     @Override
     public void onChannelConnect(String remoteAddr, Channel channel) {
     }
-
+    //连接关闭事件
     @Override
     public void onChannelClose(String remoteAddr, Channel channel) {
+        // 清除路由信息
         this.namesrvController.getRouteInfoManager().onChannelDestroy(remoteAddr, channel);
     }
-
+    //连接异常事件
     @Override
     public void onChannelException(String remoteAddr, Channel channel) {
+        // 清除路由信息
         this.namesrvController.getRouteInfoManager().onChannelDestroy(remoteAddr, channel);
     }
-
+    //连接闲置事件
     @Override
     public void onChannelIdle(String remoteAddr, Channel channel) {
+        // 清除路由信息
         this.namesrvController.getRouteInfoManager().onChannelDestroy(remoteAddr, channel);
     }
 }

@@ -21,20 +21,31 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 配置管理器
+ */
 public abstract class ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
     public abstract String encode();
 
+    /**
+     * 加载配置文件
+     * @return
+     */
     public boolean load() {
         String fileName = null;
         try {
+            // 配置文件路径
             fileName = this.configFilePath();
+            // 加载配置文件得到内部的json字符串数据
             String jsonString = MixAll.file2String(fileName);
 
             if (null == jsonString || jsonString.length() == 0) {
+                // 如果加载的json字符串为空，则转而加载bak备份文件
                 return this.loadBak();
             } else {
+                // 如果加载的json字符串不为空，则将json字符串反序列化为对象属性
                 this.decode(jsonString);
                 log.info("load " + fileName + " OK");
                 return true;
@@ -47,6 +58,10 @@ public abstract class ConfigManager {
 
     public abstract String configFilePath();
 
+    /**
+     * bak文件加载
+     * @return
+     */
     private boolean loadBak() {
         String fileName = null;
         try {
@@ -67,11 +82,16 @@ public abstract class ConfigManager {
 
     public abstract void decode(final String jsonString);
 
+    /**
+     * 持久化
+     */
     public synchronized void persist() {
+        // 编码
         String jsonString = this.encode(true);
         if (jsonString != null) {
             String fileName = this.configFilePath();
             try {
+                // 持久化
                 MixAll.string2File(jsonString, fileName);
             } catch (IOException e) {
                 log.error("persist file " + fileName + " exception", e);

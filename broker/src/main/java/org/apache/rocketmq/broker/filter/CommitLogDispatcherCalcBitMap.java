@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Iterator;
 
 /**
+ * 针对布隆过滤器的消费过滤类
  * Calculate bit map of filter.
  */
 public class CommitLogDispatcherCalcBitMap implements CommitLogDispatcher {
@@ -60,7 +61,7 @@ public class CommitLogDispatcherCalcBitMap implements CommitLogDispatcher {
 
             Iterator<ConsumerFilterData> iterator = filterDatas.iterator();
             BitsArray filterBitMap = BitsArray.create(
-                this.consumerFilterManager.getBloomFilter().getM()
+                    this.consumerFilterManager.getBloomFilter().getM()
             );
 
             long startTime = System.currentTimeMillis();
@@ -91,8 +92,8 @@ public class CommitLogDispatcherCalcBitMap implements CommitLogDispatcher {
                 // eval true
                 if (ret != null && ret instanceof Boolean && (Boolean) ret) {
                     consumerFilterManager.getBloomFilter().hashTo(
-                        filterData.getBloomFilterData(),
-                        filterBitMap
+                            filterData.getBloomFilterData(),
+                            filterBitMap
                     );
                 }
             }

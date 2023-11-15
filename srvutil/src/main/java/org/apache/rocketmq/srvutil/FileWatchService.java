@@ -32,6 +32,9 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * Tls相关的文件观察服务:每隔500ms检查一下文件是否发生变化（检查hash）
+ */
 public class FileWatchService extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
@@ -42,7 +45,7 @@ public class FileWatchService extends ServiceThread {
     private MessageDigest md = MessageDigest.getInstance("MD5");
 
     public FileWatchService(final String[] watchFiles,
-        final Listener listener) throws Exception {
+                            final Listener listener) throws Exception {
         this.listener = listener;
         this.watchFiles = new ArrayList<>();
         this.fileCurrentHash = new ArrayList<>();

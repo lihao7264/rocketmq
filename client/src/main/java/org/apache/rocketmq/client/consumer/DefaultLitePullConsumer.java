@@ -115,6 +115,12 @@ public class DefaultLitePullConsumer extends ClientConfig implements LitePullCon
     /**
      * Maximum number of messages pulled each time.
      */
+    // 消费者每次可拉取的最大消息数
+    /**
+     * 消费者每次从broker拉取消息的最大消息数。
+     * 默认值：10。
+     * 最大值：1024。
+     */
     private int pullBatchSize = 10;
 
     /**
@@ -308,7 +314,7 @@ public class DefaultLitePullConsumer extends ClientConfig implements LitePullCon
 
     @Override
     public void registerTopicMessageQueueChangeListener(String topic,
-        TopicMessageQueueChangeListener topicMessageQueueChangeListener) throws MQClientException {
+                                                        TopicMessageQueueChangeListener topicMessageQueueChangeListener) throws MQClientException {
         this.defaultLitePullConsumerImpl.registerTopicMessageQueueChangeListener(withNamespace(topic), topicMessageQueueChangeListener);
     }
 
@@ -518,8 +524,8 @@ public class DefaultLitePullConsumer extends ClientConfig implements LitePullCon
 
     public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
         if (consumeFromWhere != ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET
-            && consumeFromWhere != ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET
-            && consumeFromWhere != ConsumeFromWhere.CONSUME_FROM_TIMESTAMP) {
+                && consumeFromWhere != ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET
+                && consumeFromWhere != ConsumeFromWhere.CONSUME_FROM_TIMESTAMP) {
             throw new RuntimeException("Invalid ConsumeFromWhere Value", null);
         }
         this.consumeFromWhere = consumeFromWhere;
@@ -548,7 +554,7 @@ public class DefaultLitePullConsumer extends ClientConfig implements LitePullCon
                 traceDispatcher.getTraceProducer().setUseTLS(this.isUseTLS());
                 this.traceDispatcher = traceDispatcher;
                 this.defaultLitePullConsumerImpl.registerConsumeMessageHook(
-                    new ConsumeMessageTraceHookImpl(traceDispatcher));
+                        new ConsumeMessageTraceHookImpl(traceDispatcher));
             } catch (Throwable e) {
                 log.error("system mqtrace hook init failed ,maybe can't send msg trace data");
             }

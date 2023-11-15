@@ -16,6 +16,10 @@
  */
 package org.apache.rocketmq.remoting.netty;
 
+/**
+ * NettyClient的配置类
+ *  Broker作为客户端时的各种属性（比如：Broker作为客户端 与 NameServer交互）
+ */
 public class NettyClientConfig {
     /**
      * Worker thread number

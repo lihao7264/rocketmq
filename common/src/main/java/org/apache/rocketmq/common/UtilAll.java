@@ -84,9 +84,18 @@ public class UtilAll {
         return sb.toString();
     }
 
+    /**
+     * UtilAll#offset2FileName(long)
+     * 文件名：20位，不足的话，则左边补0
+     * 1111 -> 00000000000000001111
+     * @param offset
+     * @return
+     */
     public static String offset2FileName(final long offset) {
         final NumberFormat nf = NumberFormat.getInstance();
+        // 固定位数
         nf.setMinimumIntegerDigits(20);
+        // 不足填充0
         nf.setMaximumFractionDigits(0);
         nf.setGroupingUsed(false);
         return nf.format(offset);
@@ -96,12 +105,20 @@ public class UtilAll {
         return System.currentTimeMillis() - beginTime;
     }
 
+    /**
+     * UtilAll#isItTimeToDo(java.lang.String)
+     * 判断当前小时是否在配置的小时内
+     * @param when
+     * @return
+     */
     public static boolean isItTimeToDo(final String when) {
+        // 切分时间
         String[] whiles = when.split(";");
         if (whiles.length > 0) {
             Calendar now = Calendar.getInstance();
             for (String w : whiles) {
                 int nowHour = Integer.parseInt(w);
+                // 判断是否在这个小时内
                 if (nowHour == now.get(Calendar.HOUR_OF_DAY)) {
                     return true;
                 }
@@ -119,8 +136,8 @@ public class UtilAll {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(t);
         return String.format("%04d%02d%02d%02d%02d%02d%03d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND),
-            cal.get(Calendar.MILLISECOND));
+                cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND),
+                cal.get(Calendar.MILLISECOND));
     }
 
     public static long computeNextMorningTimeMillis() {
@@ -175,32 +192,44 @@ public class UtilAll {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(t);
         return String.format("%04d-%02d-%02d %02d:%02d:%02d,%03d",
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH),
-            cal.get(Calendar.HOUR_OF_DAY),
-            cal.get(Calendar.MINUTE),
-            cal.get(Calendar.SECOND),
-            cal.get(Calendar.MILLISECOND));
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.DAY_OF_MONTH),
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                cal.get(Calendar.SECOND),
+                cal.get(Calendar.MILLISECOND));
     }
 
     public static String timeMillisToHumanString3(final long t) {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(t);
         return String.format("%04d%02d%02d%02d%02d%02d",
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH),
-            cal.get(Calendar.HOUR_OF_DAY),
-            cal.get(Calendar.MINUTE),
-            cal.get(Calendar.SECOND));
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.DAY_OF_MONTH),
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                cal.get(Calendar.SECOND));
     }
 
+    /**
+     * UtilAll#isPathExists(java.lang.String)
+     * 文件目录是否存在
+     * @param path 文件目录
+     * @return
+     */
     public static boolean isPathExists(final String path) {
         File file = new File(path);
         return file.exists();
     }
 
+    /**
+     * UtilAll#getDiskPartitionSpaceUsedPercent
+     * 获取磁盘分区空间使用百分比
+     * @param path
+     * @return
+     */
     public static double getDiskPartitionSpaceUsedPercent(final String path) {
         if (null == path || path.isEmpty()) {
             log.error("Error when measuring disk space usage, path is null or empty, path : {}", path);
@@ -216,17 +245,21 @@ public class UtilAll {
                 return -1;
             }
 
-
+            // 磁盘总空间大小
             long totalSpace = file.getTotalSpace();
 
             if (totalSpace > 0) {
+                // 使用的磁盘空间大小=磁盘总空间大小-未使用的磁盘空间大小（不准的）
                 long usedSpace = totalSpace - file.getFreeSpace();
+                // 可用的磁盘空间大小
                 long usableSpace = file.getUsableSpace();
+                // 整体磁盘空间大小=使用的磁盘空间大小+可用的磁盘空间大小
                 long entireSpace = usedSpace + usableSpace;
                 long roundNum = 0;
                 if (usedSpace * 100 % entireSpace != 0) {
                     roundNum = 1;
                 }
+                // 磁盘使用率
                 long result = usedSpace * 100 / entireSpace + roundNum;
                 return result / 100.0;
             }
@@ -478,9 +511,9 @@ public class UtilAll {
 
     public static boolean isInternalV6IP(InetAddress inetAddr) {
         if (inetAddr.isAnyLocalAddress() // Wild card ipv6
-            || inetAddr.isLinkLocalAddress() // Single broadcast ipv6 address: fe80:xx:xx...
-            || inetAddr.isLoopbackAddress() //Loopback ipv6 address
-            || inetAddr.isSiteLocalAddress()) { // Site local ipv6 address: fec0:xx:xx...
+                || inetAddr.isLinkLocalAddress() // Single broadcast ipv6 address: fe80:xx:xx...
+                || inetAddr.isLoopbackAddress() //Loopback ipv6 address
+                || inetAddr.isSiteLocalAddress()) { // Site local ipv6 address: fec0:xx:xx...
             return true;
         }
         return false;
@@ -509,8 +542,8 @@ public class UtilAll {
             return null;
         }
         return new StringBuilder().append(ip[0] & 0xFF).append(".").append(
-            ip[1] & 0xFF).append(".").append(ip[2] & 0xFF)
-            .append(".").append(ip[3] & 0xFF).toString();
+                        ip[1] & 0xFF).append(".").append(ip[2] & 0xFF)
+                .append(".").append(ip[3] & 0xFF).toString();
     }
 
     public static String ipToIPv6Str(byte[] ip) {

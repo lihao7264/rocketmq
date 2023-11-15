@@ -26,21 +26,43 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 
+/**
+ * Broker的配置类（Broker配置属性）
+ */
 public class BrokerConfig {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
-
+    /**
+     * ROCKETMQ_HOME
+     */
     private String rocketmqHome = System.getProperty(MixAll.ROCKETMQ_HOME_PROPERTY, System.getenv(MixAll.ROCKETMQ_HOME_ENV));
+    /**
+     * NameServer地址集合
+     */
     @ImportantField
     private String namesrvAddr = System.getProperty(MixAll.NAMESRV_ADDR_PROPERTY, System.getenv(MixAll.NAMESRV_ADDR_ENV));
     @ImportantField
     private String brokerIP1 = RemotingUtil.getLocalAddress();
     private String brokerIP2 = RemotingUtil.getLocalAddress();
+    /**
+     * broker名
+     */
     @ImportantField
     private String brokerName = localHostName();
+    /**
+     * 集群名
+     */
     @ImportantField
     private String brokerClusterName = "DefaultCluster";
+    /**
+     * brokerId
+     * 同步master或异步master角色，则设置brokerId为0
+     * slave角色，brokerId为非0正数
+     */
     @ImportantField
     private long brokerId = MixAll.MASTER_ID;
+    /**
+     * 默认broker权限：6（读写权限）
+     */
     private int brokerPermission = PermName.PERM_READ | PermName.PERM_WRITE;
     private int defaultTopicQueueNums = 8;
     @ImportantField
@@ -75,15 +97,22 @@ public class BrokerConfig {
      */
     private int endTransactionThreadPoolNums = Math.max(8 + Runtime.getRuntime().availableProcessors() * 2,
             sendMessageThreadPoolNums * 4);
-
+    // 默认消费者offset刷盘时间间隔：5s
     private int flushConsumerOffsetInterval = 1000 * 5;
 
     private int flushConsumerOffsetHistoryInterval = 1000 * 60;
 
     @ImportantField
     private boolean rejectTransactionMessage = false;
+
+    /**
+     * 如果未指定nameServer地址，则是否允许从地址服务器获取NameServer地址
+     */
     @ImportantField
     private boolean fetchNamesrvAddrByAddressServer = false;
+    /**
+     * 生产者的发送消息请求的队列大小
+     */
     private int sendThreadPoolQueueCapacity = 10000;
     private int putThreadPoolQueueCapacity = 10000;
     private int pullThreadPoolQueueCapacity = 100000;
@@ -148,13 +177,17 @@ public class BrokerConfig {
 
     // whether do filter when retry.
     private boolean filterSupportRetry = false;
+    /**
+     * 是否开启消息的SQL过滤功能
+     * 默认为false（不开启）
+     */
     private boolean enablePropertyFilter = false;
 
     private boolean compressedRegister = false;
 
     private boolean forceRegister = true;
 
-    /**
+    /** 默认每隔30s向NameServer进行一次注册时间间隔
      * This configurable item defines interval of topics registration of broker to name server. Allowing values are
      * between 10, 000 and 60, 000 milliseconds.
      */
@@ -164,11 +197,19 @@ public class BrokerConfig {
      * The minimum time of the transactional message  to be checked firstly, one message only exceed this time interval
      * that can be checked.
      */
+    /**
+     * 指定TM在多少秒内应将最终确认状态发送给TC，否则引发消息回查。
+     * 默认为60秒
+     */
     @ImportantField
     private long transactionTimeOut = 6 * 1000;
 
     /**
      * The maximum number of times the message was checked, if exceed this value, this message will be discarded.
+     */
+    /**
+     * 指定最多回查次数，超过后将丢弃消息并记录错误日志。
+     * 默认15次。
      */
     @ImportantField
     private int transactionCheckMax = 15;
@@ -176,10 +217,16 @@ public class BrokerConfig {
     /**
      * Transaction message check interval.
      */
+    /**
+     * 指定设置的多次消息回查的时间间隔为多少秒
+     * 默认为60秒。
+     */
     @ImportantField
     private long transactionCheckInterval = 60 * 1000;
 
     /**
+     * 是否开启ACL权限
+     * 默认值：false
      * Acl feature switch
      */
     @ImportantField
@@ -192,7 +239,9 @@ public class BrokerConfig {
     private boolean autoDeleteUnusedStats = false;
 
     /**
-     * Whether to distinguish log paths when multiple brokers are deployed on the same machine
+     * isolateLogEnable属性：表示在同一台机器上部署多个broker时是否区分日志路径。
+     * 默认值false
+     *  Whether to distinguish log paths when multiple brokers are deployed on the same machine
      */
     private boolean isolateLogEnable = false;
 

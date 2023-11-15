@@ -48,9 +48,13 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 public class MixAll {
+    // RocketMQ默认基础根目录
     public static final String ROCKETMQ_HOME_ENV = "ROCKETMQ_HOME";
+    // RocketMQ基础根目录配置key
     public static final String ROCKETMQ_HOME_PROPERTY = "rocketmq.home.dir";
+    // RocketMQ默认NameServer地址集合
     public static final String NAMESRV_ADDR_ENV = "NAMESRV_ADDR";
+    // RocketMQ基础NameServer地址集合key
     public static final String NAMESRV_ADDR_PROPERTY = "rocketmq.namesrv.addr";
     public static final String MESSAGE_COMPRESS_TYPE = "rocketmq.message.compressType";
     public static final String MESSAGE_COMPRESS_LEVEL = "rocketmq.message.compressLevel";
@@ -65,6 +69,9 @@ public class MixAll {
     public static final String SCHEDULE_CONSUMER_GROUP = "SCHEDULE_CONSUMER";
     public static final String FILTERSRV_CONSUMER_GROUP = "FILTERSRV_CONSUMER";
     public static final String MONITOR_CONSUMER_GROUP = "__MONITOR_CONSUMER";
+    /**
+     * 客户端内部的生产者组名，该生产者用于发送消息回退请求
+     */
     public static final String CLIENT_INNER_PRODUCER_GROUP = "CLIENT_INNER_PRODUCER";
     public static final String SELF_TEST_PRODUCER_GROUP = "SELF_TEST_P_GROUP";
     public static final String SELF_TEST_CONSUMER_GROUP = "SELF_TEST_C_GROUP";
@@ -76,9 +83,12 @@ public class MixAll {
     public static final List<String> LOCAL_INET_ADDRESS = getLocalInetAddress();
     public static final String LOCALHOST = localhost();
     public static final String DEFAULT_CHARSET = "UTF-8";
+    // Master broker的brokerId
     public static final long MASTER_ID = 0L;
     public static final long CURRENT_JVM_PID = getPID();
+    // 重试消息分组topic前缀
     public static final String RETRY_GROUP_TOPIC_PREFIX = "%RETRY%";
+    // 重试n多次失败后的死信队列对应的topic前缀
     public static final String DLQ_GROUP_TOPIC_PREFIX = "%DLQ%";
     public static final String REPLY_TOPIC_POSTFIX = "REPLY_TOPIC";
     public static final String UNIQUE_MSG_QUERY_FLAG = "_UNIQUE_KEY_QUERY";
@@ -237,7 +247,7 @@ public class MixAll {
     }
 
     public static void printObjectProperties(final InternalLogger logger, final Object object,
-        final boolean onlyImportantField) {
+                                             final boolean onlyImportantField) {
         Field[] fields = object.getClass().getDeclaredFields();
         for (Field field : fields) {
             if (!Modifier.isStatic(field.getModifiers())) {

@@ -18,14 +18,29 @@ package org.apache.rocketmq.store;
 
 import java.nio.ByteBuffer;
 
+/**
+ * 描述选取MappedFile中 一部分ByteBuffer 的结果，提供随机读的操作
+ */
 public class SelectMappedBufferResult {
 
+    /**
+     * 开始位置：绝对偏移，20位long型
+     */
     private final long startOffset;
 
+    /**
+     * 对应的byteBuffer
+     */
     private final ByteBuffer byteBuffer;
 
+    /**
+     * 对应的byteBuffer的大小
+     */
     private int size;
 
+    /**
+     * 属于哪个mappedFile的一部分
+     */
     private MappedFile mappedFile;
 
     public SelectMappedBufferResult(long startOffset, ByteBuffer byteBuffer, int size, MappedFile mappedFile) {
@@ -45,11 +60,17 @@ public class SelectMappedBufferResult {
 
     public void setSize(final int s) {
         this.size = s;
+        // 修改限制
         this.byteBuffer.limit(this.size);
     }
 
+    /**
+     * SelectMappedBufferResult#release()
+     * 释放资源
+     */
     public synchronized void release() {
         if (this.mappedFile != null) {
+            // 释放mappedFile引用
             this.mappedFile.release();
             this.mappedFile = null;
         }

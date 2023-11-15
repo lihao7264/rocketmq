@@ -19,9 +19,23 @@ package org.apache.rocketmq.remoting;
 
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * RocketMQ提供的钩子类：可以在请求被处理之前和响应被返回之前执行对应的方法
+ */
 public interface RPCHook {
+    /**
+     *  broker处理请求之前执行
+     * @param remoteAddr
+     * @param request
+     */
     void doBeforeRequest(final String remoteAddr, final RemotingCommand request);
 
+    /**
+     * broker响应返回之前执行
+     * @param remoteAddr
+     * @param request
+     * @param response
+     */
     void doAfterResponse(final String remoteAddr, final RemotingCommand request,
-        final RemotingCommand response);
+                         final RemotingCommand response);
 }

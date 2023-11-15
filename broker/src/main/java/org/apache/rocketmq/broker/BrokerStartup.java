@@ -47,23 +47,38 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.rocketmq.remoting.netty.TlsSystemConfig.TLS_ENABLE;
 
+/**
+ * Broker启动类
+ */
 public class BrokerStartup {
+    // 外部配置文件的配置信息
     public static Properties properties = null;
+    // 命令行
     public static CommandLine commandLine = null;
+    // -c 外部配置文件地址
     public static String configFile = null;
     public static InternalLogger log;
 
+    // BrokerStartup启动入口
     public static void main(String[] args) {
+        /**
+         * 启动broker的入口：创建并启动一个BrokerController实例
+         */
         start(createBrokerController(args));
     }
 
+    /**
+     * 启动BrokerController
+     * @param controller
+     * @return
+     */
     public static BrokerController start(BrokerController controller) {
         try {
-
+            // 启动broker
             controller.start();
-
+            // broker启动之后的的信息打印到控制台
             String tip = "The broker[" + controller.getBrokerConfig().getBrokerName() + ", "
-                + controller.getBrokerAddr() + "] boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
+                    + controller.getBrokerAddr() + "] boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
 
             if (null != controller.getBrokerConfig().getNamesrvAddr()) {
                 tip += " and name server is " + controller.getBrokerConfig().getNamesrvAddr();
@@ -86,79 +101,130 @@ public class BrokerStartup {
         }
     }
 
+    /**
+     * 创建BrokerController
+     * @param args
+     * @return
+     */
     public static BrokerController createBrokerController(String[] args) {
+        // 设置RocketMQ的版本信息（属性rocketmq.remoting.version，即当前rocketmq版本）
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
 
         try {
             //PackageConflictDetect.detectFastjson();
+            /**
+             * 1.jar包启动时，构建命令行操作的指令，使用main方法启动可以忽略
+             */
             Options options = ServerUtil.buildCommandlineOptions(new Options());
+            // mqbroker命令文件
             commandLine = ServerUtil.parseCmdLine("mqbroker", args, buildCommandlineOptions(options),
-                new PosixParser());
+                    new PosixParser());
             if (null == commandLine) {
                 System.exit(-1);
             }
-
+            /**
+             * 2.创建broker的配置类，包含Broker的各种配置（比如：ROCKETMQ_HOME）
+             */
             final BrokerConfig brokerConfig = new BrokerConfig();
+            /**
+             * NettyServer的配置类
+             * Broker作为服务端时，会接收来自客户端的消息
+             */
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+            /**
+             * NettyClient的配置类
+             * Broker作为客户端时，会连接NameServer
+             */
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
-
+            // tls安全相关配置
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
-                String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+                    String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+            // 设置作为NettyServer时的监听端口为10911
             nettyServerConfig.setListenPort(10911);
+            /**
+             * Broker的消息存储配置
+             * 举例：各种文件大小等
+             */
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
-
+            /**
+             * 如果broker的角色是slave，则设置命中消息在内存的最大比例
+             *  默认broker角色是异步master
+             */
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
+                // broker的角色是slave时，设置命中消息在内存的最大比例为30
                 int ratio = messageStoreConfig.getAccessMessageInMemoryMaxRatio() - 10;
                 messageStoreConfig.setAccessMessageInMemoryMaxRatio(ratio);
             }
-
+            /**
+             * 3.解析外部配置文件
+             *   判断命令行中是否包含字符'c'（即是否包含通过命令行指定配置文件的命令）
+             *   举例：启动Broker时，添加的 -c /Users/admin/Desktop/project/open_source/rc/rocketmq/config/conf/broker.conf命令
+             */
             if (commandLine.hasOption('c')) {
+                // 获取该命令指定的配置文件
                 String file = commandLine.getOptionValue('c');
                 if (file != null) {
+                    // 加载外部配置文件
                     configFile = file;
                     InputStream in = new BufferedInputStream(new FileInputStream(file));
                     properties = new Properties();
                     properties.load(in);
-
+                    // 将rmqAddressServerDomain、rmqAddressServerSubGroup属性设置为系统属性
                     properties2SystemEnv(properties);
+                    // 设置broker的配置信息
                     MixAll.properties2Object(properties, brokerConfig);
+                    // 设置NettyServer的配置信息
                     MixAll.properties2Object(properties, nettyServerConfig);
+                    // 设置NettyClient的配置信息
                     MixAll.properties2Object(properties, nettyClientConfig);
+                    // 设置messageStore的配置信息
                     MixAll.properties2Object(properties, messageStoreConfig);
-
+                    // 设置配置文件路径
                     BrokerPathConfigHelper.setBrokerConfigPath(file);
                     in.close();
                 }
             }
-
+            // 设置broker的配置信息
             MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), brokerConfig);
-
+            // 如果不存在ROCKETMQ_HOME配置，则打印异常并退出程序
             if (null == brokerConfig.getRocketmqHome()) {
                 System.out.printf("Please set the %s variable in your environment to match the location of the RocketMQ installation", MixAll.ROCKETMQ_HOME_ENV);
                 System.exit(-2);
             }
-
+            /**
+             * 4.获取namesrvAddr（即NameServer的地址） 并 进行校验
+             */
             String namesrvAddr = brokerConfig.getNamesrvAddr();
             if (null != namesrvAddr) {
                 try {
+                    /**
+                     * 拆分NameServer的地址
+                     * 可以指定多个NameServer的地址，以";"分隔
+                     */
                     String[] addrArray = namesrvAddr.split(";");
                     for (String addr : addrArray) {
                         RemotingUtil.string2SocketAddress(addr);
                     }
                 } catch (Exception e) {
                     System.out.printf(
-                        "The Name Server Address[%s] illegal, please set it as follows, \"127.0.0.1:9876;192.168.0.1:9876\"%n",
-                        namesrvAddr);
+                            "The Name Server Address[%s] illegal, please set it as follows, \"127.0.0.1:9876;192.168.0.1:9876\"%n",
+                            namesrvAddr);
                     System.exit(-3);
                 }
             }
-
+            /**
+             * 4.设置、校验brokerId
+             *   根据broker的角色配置brokerId，默认角色是ASYNC_MASTER
+             *   BrokerId为0表示Master，非0表示Slave
+             */
             switch (messageStoreConfig.getBrokerRole()) {
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
+                    // 如果是master角色，则设置brokerId为0
                     brokerConfig.setBrokerId(MixAll.MASTER_ID);
                     break;
                 case SLAVE:
+                    // 如果是slave角色，brokerId需大于0
                     if (brokerConfig.getBrokerId() <= 0) {
                         System.out.printf("Slave's brokerId must be > 0");
                         System.exit(-3);
@@ -168,17 +234,31 @@ public class BrokerStartup {
                 default:
                     break;
             }
-
+            // 开启 DLeger 的操作
             if (messageStoreConfig.isEnableDLegerCommitLog()) {
                 brokerConfig.setBrokerId(-1);
             }
-
+            /**
+             * 5.设置高可用通信监听端口，为监听端口+1，默认是10912
+             *   该端口主要用于主从同步之类的高可用操作
+             *   在配置broker集群时，需注意配置集群时可能会抛出：Address already in use
+             *   因为一个broker机器会占用三个端口：监听ip端口、监听ip端口+1的端口、监听ip端口-2端口
+             */
             messageStoreConfig.setHaListenPort(nettyServerConfig.getListenPort() + 1);
+            /**
+             * 6 日志相关配置
+             */
             LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+            // Joran：logback 使用的一个配置加载库，可直接调用JoranConfigurator类重新实现logback的配置机制
             JoranConfigurator configurator = new JoranConfigurator();
             configurator.setContext(lc);
             lc.reset();
+            // 配置broker日志文件的路徑
             System.setProperty("brokerLogDir", "");
+            /**
+             * isolateLogEnable属性：表示在同一台机器上部署多个broker时是否区分日志路径。
+             * 默认值false
+             */
             if (brokerConfig.isIsolateLogEnable()) {
                 System.setProperty("brokerLogDir", brokerConfig.getBrokerName() + "_" + brokerConfig.getBrokerId());
             }
@@ -187,7 +267,13 @@ public class BrokerStartup {
             }
             configurator.doConfigure(brokerConfig.getRocketmqHome() + "/conf/logback_broker.xml");
 
+            /**
+             * 判断命令行中是否包含字符'p'（printConfigItem）和'm'
+             * 如果存在，则打印配置信息并结束jvm运行。
+             * 如果不存在，则啥也不用管
+             */
             if (commandLine.hasOption('p')) {
+                // 打印配置
                 InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.BROKER_CONSOLE_NAME);
                 MixAll.printObjectProperties(console, brokerConfig);
                 MixAll.printObjectProperties(console, nettyServerConfig);
@@ -202,27 +288,36 @@ public class BrokerStartup {
                 MixAll.printObjectProperties(console, messageStoreConfig, true);
                 System.exit(0);
             }
-
+            // 打印当前broker的配置日志
             log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
             MixAll.printObjectProperties(log, brokerConfig);
             MixAll.printObjectProperties(log, nettyServerConfig);
             MixAll.printObjectProperties(log, nettyClientConfig);
             MixAll.printObjectProperties(log, messageStoreConfig);
-
+            /**
+             * 7.实例化BrokerController，设置各种属性
+             */
             final BrokerController controller = new BrokerController(
-                brokerConfig,
-                nettyServerConfig,
-                nettyClientConfig,
-                messageStoreConfig);
+                    brokerConfig,
+                    nettyServerConfig,
+                    nettyClientConfig,
+                    messageStoreConfig);
+            // 将所有的-c的外部配置信息(配置文件)保存到NamesrvController中的Configuration对象属性的allConfigs属性中
             // remember all configs to prevent discard
             controller.getConfiguration().registerConfig(properties);
-
+            /**
+             * 8.初始化BrokerController
+             * 创建Netty远程服务，初始化Netty线程池，注册请求处理器，配置定时任务，用于扫描并移除不活跃的Broker等操作。
+             */
             boolean initResult = controller.initialize();
+            // 初始化失败则退出
             if (!initResult) {
                 controller.shutdown();
                 System.exit(-3);
             }
-
+            /*
+             * 9.添加关闭钩子方法，在Broker关闭之前执行，进行一些内存清理、对象销毁等操作
+             */
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 private volatile boolean hasShutdown = false;
                 private AtomicInteger shutdownTimes = new AtomicInteger(0);
@@ -234,6 +329,7 @@ public class BrokerStartup {
                         if (!this.hasShutdown) {
                             this.hasShutdown = true;
                             long beginTime = System.currentTimeMillis();
+                            // 执行controller的shutdown方法 且 还会在messageStore#shutdown方法中将abort临时文件删除。
                             controller.shutdown();
                             long consumingTimeTotal = System.currentTimeMillis() - beginTime;
                             log.info("Shutdown hook over, consuming total time(ms): {}", consumingTimeTotal);
@@ -241,7 +337,7 @@ public class BrokerStartup {
                     }
                 }
             }, "ShutdownHook"));
-
+            // 返回BrokerController
             return controller;
         } catch (Throwable e) {
             e.printStackTrace();
@@ -250,7 +346,7 @@ public class BrokerStartup {
 
         return null;
     }
-
+    // 将rmqAddressServerDomain、rmqAddressServerSubGroup属性设置为系统属性
     private static void properties2SystemEnv(Properties properties) {
         if (properties == null) {
             return;

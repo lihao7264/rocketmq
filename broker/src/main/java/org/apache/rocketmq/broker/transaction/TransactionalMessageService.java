@@ -22,6 +22,10 @@ import org.apache.rocketmq.store.MessageExtBrokerInner;
 import org.apache.rocketmq.store.PutMessageResult;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * transactionalMessageService：事务消息服务
+ * 用于处理、检查事务消息
+ */
 public interface TransactionalMessageService {
 
     /**

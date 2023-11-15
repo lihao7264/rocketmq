@@ -19,27 +19,40 @@ package org.apache.rocketmq.store.index;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
+// 固定40个字节
 public class IndexHeader {
+    // IndexHeader的大小（固定40个字节）
     public static final int INDEX_HEADER_SIZE = 40;
+    // 第一条消息的存储时间的偏移位置
+    // 4*8字节+2*4字节=40字节
     private static int beginTimestampIndex = 0;
     private static int endTimestampIndex = 8;
     private static int beginPhyoffsetIndex = 16;
     private static int endPhyoffsetIndex = 24;
     private static int hashSlotcountIndex = 32;
     private static int indexCountIndex = 36;
+    // 对应的ByteBuffer
     private final ByteBuffer byteBuffer;
+    // 该indexFile中第一条消息的存储时间
     private final AtomicLong beginTimestamp = new AtomicLong(0);
+    // 该indexFile中最后一条消息存储时间
     private final AtomicLong endTimestamp = new AtomicLong(0);
+    // 该indexFile中第一条消息在commitlog中的偏移量commitlog offset
     private final AtomicLong beginPhyOffset = new AtomicLong(0);
+    // 该indexFile中最后一条消息在commitlog中的偏移量commitlog offset
     private final AtomicLong endPhyOffset = new AtomicLong(0);
+    // 已填充有index的slot数量（并非每个slot槽下都挂载有index索引单元，这里统计的是所有挂载了index索引单元的slot槽的数量）
     private final AtomicInteger hashSlotCount = new AtomicInteger(0);
+    // 该indexFile中包含的索引单元个数（统计出当前indexFile中所有slot槽下挂载的所有index索引单元的数量之和）
     private final AtomicInteger indexCount = new AtomicInteger(1);
 
     public IndexHeader(final ByteBuffer byteBuffer) {
         this.byteBuffer = byteBuffer;
     }
 
+    /**
+     * 根据byteBuffer加载相关的IndexFile的头信息（读取byteBuffer的内容到内存中）
+     */
     public void load() {
         this.beginTimestamp.set(byteBuffer.getLong(beginTimestampIndex));
         this.endTimestamp.set(byteBuffer.getLong(endTimestampIndex));
@@ -54,6 +67,9 @@ public class IndexHeader {
         }
     }
 
+    /**
+     * 更新header的各个记录
+     */
     public void updateByteBuffer() {
         this.byteBuffer.putLong(beginTimestampIndex, this.beginTimestamp.get());
         this.byteBuffer.putLong(endTimestampIndex, this.endTimestamp.get());
@@ -102,7 +118,9 @@ public class IndexHeader {
     public AtomicInteger getHashSlotCount() {
         return hashSlotCount;
     }
-
+    /**
+     * 已填充有index的slot数量 + 1
+     */
     public void incHashSlotCount() {
         int value = this.hashSlotCount.incrementAndGet();
         this.byteBuffer.putInt(hashSlotcountIndex, value);
@@ -112,6 +130,9 @@ public class IndexHeader {
         return indexCount.get();
     }
 
+    /**
+     * 对应的索引文件记录的索引单元个数 + 1
+     */
     public void incIndexCount() {
         int value = this.indexCount.incrementAndGet();
         this.byteBuffer.putInt(indexCountIndex, value);

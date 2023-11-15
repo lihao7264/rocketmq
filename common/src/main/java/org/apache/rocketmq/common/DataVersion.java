@@ -19,15 +19,33 @@ package org.apache.rocketmq.common;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * RocketMQ的数据版本控制机制
+ */
 public class DataVersion extends RemotingSerializable {
+    /**
+     * 时间戳毫秒值
+     */
     private long timestamp = System.currentTimeMillis();
+    /**
+     * 版本号
+     */
     private AtomicLong counter = new AtomicLong(0);
 
+    /**
+     * 拷贝目标dataVersion的数据，在从文件恢复数据时会用到
+     */
     public void assignNewOne(final DataVersion dataVersion) {
         this.timestamp = dataVersion.timestamp;
         this.counter.set(dataVersion.counter.get());
     }
 
+    /**
+     * 更新时间戳以及counter到下一个版本
+     * 调用时机：
+     *  时机一：新创建broker
+     *  时机二：更新topic的信息
+     */
     public void nextVersion() {
         this.timestamp = System.currentTimeMillis();
         this.counter.incrementAndGet();
