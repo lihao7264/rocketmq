@@ -19,12 +19,33 @@ package org.apache.rocketmq.client.producer;
 import com.alibaba.fastjson.JSON;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 最终响应的结果
+ */
 public class SendResult {
+    /**
+     * 发送状态
+     */
     private SendStatus sendStatus;
+    /**
+     * 消息id：客户端生成的uniqMsgId
+     */
     private String msgId;
+    /**
+     * 消息队列
+     */
     private MessageQueue messageQueue;
+    /**
+     * 队列偏移量
+     */
     private long queueOffset;
+    /**
+     * 事务id
+     */
     private String transactionId;
+    /**
+     * broker生成的MsgId
+     */
     private String offsetMsgId;
     private String regionId;
     private boolean traceOn = true;

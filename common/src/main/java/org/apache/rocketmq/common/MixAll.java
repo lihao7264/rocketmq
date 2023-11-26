@@ -128,14 +128,23 @@ public class MixAll {
         return DLQ_GROUP_TOPIC_PREFIX + consumerGroup;
     }
 
+    /**
+     * 判断vip通道
+     * @param isChange
+     * @param brokerAddr
+     * @return
+     */
     public static String brokerVIPChannel(final boolean isChange, final String brokerAddr) {
+        // 如果开启了vip通道
         if (isChange) {
             int split = brokerAddr.lastIndexOf(":");
             String ip = brokerAddr.substring(0, split);
             String port = brokerAddr.substring(split + 1);
+            // 重新拼接brokerAddr，其中port - 2
             String brokerAddrNew = ip + ":" + (Integer.parseInt(port) - 2);
             return brokerAddrNew;
         } else {
+            // 如果未开启vip通道，则返回原地址
             return brokerAddr;
         }
     }

@@ -29,7 +29,7 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 /**
  * StoreCheckpoint记录着commitLog、ConsumeQueue、Index文件的最后更新时间点
- * 作用：当上一次broker是异常结束时，会根据StoreCheckpoint的数据进行恢复，这决定着文件从哪里开始恢复，甚至是删除文件
+ * 作用：当上一次broker是异常结束时，会根据StoreCheckpoint的数据进行恢复，这决定着文件从哪里开始恢复、删除文件
  */
 public class StoreCheckpoint {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);

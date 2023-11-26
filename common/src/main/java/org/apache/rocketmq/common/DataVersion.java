@@ -21,6 +21,9 @@ import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 /**
  * RocketMQ的数据版本控制机制
+ *  判断Broker是否需要重新注册的条件：NameServer中的DataVersion 跟 Broker的DataVersion是否一致
+ *    一致，则无需重新注册（节省了性能）
+ *    不一致，则需重新注册
  */
 public class DataVersion extends RemotingSerializable {
     /**

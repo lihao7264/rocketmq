@@ -22,6 +22,9 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.common.UtilAll;
 
+/**
+ * 消息客户端id生成器
+ */
 public class MessageClientIDSetter {
     private static final String TOPIC_KEY_SPLITTER = "#";
     private static final int LEN;
@@ -130,7 +133,12 @@ public class MessageClientIDSetter {
         return new String(sb);
     }
 
+    /**
+     * 生成uniqId
+     * @param msg
+     */
     public static void setUniqID(final Message msg) {
+        // 如果这条消息不存在"UNIQ_KEY"属性，则创建uniqId并存入"UNIQ_KEY"属性中
         if (msg.getProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX) == null) {
             msg.putProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX, createUniqID());
         }

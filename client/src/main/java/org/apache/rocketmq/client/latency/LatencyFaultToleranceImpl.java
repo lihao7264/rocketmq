@@ -24,25 +24,43 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.common.ThreadLocalIndex;
 
+/**
+ * 延迟容错
+ */
 public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> {
+
+    /**
+     * 故障表：<brokerName,故障信息>
+     */
     private final ConcurrentHashMap<String, FaultItem> faultItemTable = new ConcurrentHashMap<String, FaultItem>(16);
 
     private final ThreadLocalIndex whichItemWorst = new ThreadLocalIndex();
 
+    /**
+     * 更新故障表
+     * @param name             brokerName
+     * @param currentLatency    当前延迟
+     * @param notAvailableDuration  隔离时间（不可用时间）
+     */
     @Override
     public void updateFaultItem(final String name, final long currentLatency, final long notAvailableDuration) {
+        // 获取该broker此前的故障记录数据
         FaultItem old = this.faultItemTable.get(name);
+        // 如果此前无数据，则设置一个新对象
         if (null == old) {
             final FaultItem faultItem = new FaultItem(name);
+            // 设置当前延迟
             faultItem.setCurrentLatency(currentLatency);
+            // 设置下一次可用时间点
             faultItem.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
-
+            //已有故障记录，更新
             old = this.faultItemTable.putIfAbsent(name, faultItem);
             if (old != null) {
                 old.setCurrentLatency(currentLatency);
                 old.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
             }
         } else {
+            // 已有故障记录，更新
             old.setCurrentLatency(currentLatency);
             old.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
         }
@@ -91,9 +109,21 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
             '}';
     }
 
+    /**
+     * 故障信息
+     */
     class FaultItem implements Comparable<FaultItem> {
+        /**
+         * brokerName
+         */
         private final String name;
+        /**
+         * 发送消息的延迟时间
+         */
         private volatile long currentLatency;
+        /**
+         * 下一个可用时间点
+         */
         private volatile long startTimestamp;
 
         public FaultItem(final String name) {

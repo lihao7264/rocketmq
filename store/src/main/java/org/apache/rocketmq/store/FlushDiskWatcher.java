@@ -25,8 +25,14 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.CommitLog.GroupCommitRequest;
 
+/**
+ * 刷盘监视器
+ */
 public class FlushDiskWatcher extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
+    /**
+     * commitRequests队列（保存刷盘请求）
+     */
     private final LinkedBlockingQueue<GroupCommitRequest> commitRequests = new LinkedBlockingQueue<>();
 
     @Override

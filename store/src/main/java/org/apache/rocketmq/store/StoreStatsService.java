@@ -51,6 +51,9 @@ public class StoreStatsService extends ServiceThread {
 
     private static int printTPSInterval = 60 * 1;
 
+    /**
+     * 保存消息失败的次数
+     */
     private final LongAdder putMessageFailedTimes = new LongAdder();
 
     private final ConcurrentMap<String, LongAdder> putMessageTopicTimesTotal =
@@ -66,9 +69,17 @@ public class StoreStatsService extends ServiceThread {
     private final LinkedList<CallSnapshot> getTimesFoundList = new LinkedList<CallSnapshot>();
     private final LinkedList<CallSnapshot> getTimesMissList = new LinkedList<CallSnapshot>();
     private final LinkedList<CallSnapshot> transferedMsgCountList = new LinkedList<CallSnapshot>();
+    /**
+     * 分段 写入消息耗时数
+     *  0ms 以下：多少次
+     *  0-10ms：多少次
+     */
     private volatile LongAdder[] putMessageDistributeTime;
     private volatile LongAdder[] lastPutMessageDistributeTime;
     private long messageStoreBootTimestamp = System.currentTimeMillis();
+    /**
+     * 写入消息的最大耗时
+     */
     private volatile long putMessageEntireTimeMax = 0;
     private volatile long getMessageEntireTimeMax = 0;
     // for putMessageEntireTimeMax

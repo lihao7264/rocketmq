@@ -29,6 +29,9 @@ public class PermName {
      * 可写：2
      */
     public static final int PERM_WRITE = 0x1 << 1;
+    /**
+     * 可继承
+     */
     public static final int PERM_INHERIT = 0x1;
 
     public static String perm2String(final int perm) {

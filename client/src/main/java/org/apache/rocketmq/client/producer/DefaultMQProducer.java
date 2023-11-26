@@ -65,6 +65,16 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      */
     protected final transient DefaultMQProducerImpl defaultMQProducerImpl;
     private final InternalLogger log = ClientLogger.getLog();
+
+    /**
+     *  如果返回的状态码属于以下几种，则支持重试：
+     *  ResponseCode.TOPIC_NOT_EXIST,
+     *  ResponseCode.SERVICE_NOT_AVAILABLE,
+     *  ResponseCode.SYSTEM_ERROR,
+     *  ResponseCode.NO_PERMISSION,
+     *  ResponseCode.NO_BUYER_ID,
+     *  ResponseCode.NOT_IN_CURRENT_UNIT
+     */
     private final Set<Integer> retryResponseCodes = new CopyOnWriteArraySet<Integer>(Arrays.asList(
             ResponseCode.TOPIC_NOT_EXIST,
             ResponseCode.SERVICE_NOT_AVAILABLE,
@@ -82,14 +92,19 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      *
      * See <a href="http://rocketmq.apache.org/docs/core-concept/">core concepts</a> for more discussion.
      */
+    // 生产者组
     private String producerGroup;
 
     /**
+     * TBW102 topic
      * Just for testing or demo program
      */
     private String createTopicKey = TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC;
 
     /**
+     * 默认topic队列数
+     * 自动创建服务器不存在的topic时，默认创建的队列数
+     * 默认值：4
      * Number of queues to create per default topic.
      */
     private volatile int defaultTopicQueueNums = 4;
@@ -104,6 +119,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int sendMsgTimeout = 3000;
 
     /**
+     * 压缩消息体的阈值：4KB
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
@@ -362,7 +378,9 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     @Override
     public SendResult send(
             Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        // 根据namespace设置topic
         msg.setTopic(withNamespace(msg.getTopic()));
+        // 调用defaultMQProducerImpl#send发送消息
         return this.defaultMQProducerImpl.send(msg);
     }
 
@@ -386,6 +404,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
+     * 异步发送消息
      * Send message to broker asynchronously. </p>
      *
      * This method returns immediately. On sending completion, <code>sendCallback</code> will be executed. </p>
@@ -403,7 +422,9 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     @Override
     public void send(Message msg,
                      SendCallback sendCallback) throws MQClientException, RemotingException, InterruptedException {
+        // 根据namespace设置topic
         msg.setTopic(withNamespace(msg.getTopic()));
+        // 调用defaultMQProducerImpl#send发送消息，带有sendCallback参数
         this.defaultMQProducerImpl.send(msg, sendCallback);
     }
 
@@ -425,6 +446,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
+     * 单向发送消息
      * Similar to <a href="https://en.wikipedia.org/wiki/User_Datagram_Protocol">UDP</a>, this method won't wait for
      * acknowledgement from broker before return. Obviously, it has maximums throughput yet potentials of message loss.
      *
@@ -435,7 +457,9 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      */
     @Override
     public void sendOneway(Message msg) throws MQClientException, RemotingException, InterruptedException {
+        // 根据namespace设置topic
         msg.setTopic(withNamespace(msg.getTopic()));
+        // 调用defaultMQProducerImpl#sendOneway发送消息
         this.defaultMQProducerImpl.sendOneway(msg);
     }
 

@@ -73,6 +73,9 @@ public class ScheduleMessageService extends ConfigManager {
     private final AtomicBoolean started = new AtomicBoolean(false);
     private ScheduledExecutorService deliverExecutorService;
     private MessageStore writeMessageStore;
+    /**
+     * 最大延迟级别
+     */
     private int maxDelayLevel;
     private boolean enableAsyncDeliver = false;
     private ScheduledExecutorService handleExecutorService;

@@ -65,7 +65,8 @@ public class MessageStoreConfig {
     private int mappedFileSizeConsumeQueue = 300000 * ConsumeQueue.CQ_STORE_UNIT_SIZE;
     // enable consume queue ext
     /**
-     * 是否启用ConsumeQueueExt，默认不启用
+     * 是否启用ConsumeQueueExt（消息队列的扩展存储）
+     * 默认值：false（即不启用）
      */
     private boolean enableConsumeQueueExt = false;
     // ConsumeQueue extend file size, 48M
@@ -83,20 +84,35 @@ public class MessageStoreConfig {
 
     // CommitLog flush interval
     // flush data to disk
+    /**
+     * 异步刷盘间隔时间
+     * 默认值：500ms
+     */
     @ImportantField
     private int flushIntervalCommitLog = 500;
 
     // Only used if TransientStorePool enabled
     // flush data to FileChannel
+    /**
+     * 临时缓存池的刷盘间隔时间
+     * 默认值：200ms
+     */
     @ImportantField
     private int commitIntervalCommitLog = 200;
 
     /**
+     * 是否使用ReentrantLock可重入锁
+     * 默认值：true
      * introduced since 4.0.x. Determine whether to use mutex reentrantLock when putting message.<br/>
      */
     private boolean useReentrantLockWhenPutMessage = true;
 
     // Whether schedule flush
+    /**
+     *是否是定时刷盘。
+     *  默认值：false（即不开启）。
+     *  可通过flushCommitLogTimed配置。
+     */
     @ImportantField
     private boolean flushCommitLogTimed = true;
     // ConsumeQueue flush interval
@@ -162,14 +178,30 @@ public class MessageStoreConfig {
     // 是否需要校验文件CRC32，默认true
     private boolean checkCRCOnRecover = true;
     // How many pages are to be flushed when flush CommitLog
+    /**
+     * 异步刷盘的最少页数
+     * 默认值：4（即16k）
+     */
     private int flushCommitLogLeastPages = 4;
     // How many pages are to be committed when commit data to file
+    /**
+     * 临时缓存池刷盘的最少页数
+     * 默认值：4（即16k）
+     */
     private int commitCommitLogLeastPages = 4;
     // Flush page size when the disk in warming state
     private int flushLeastPagesWhenWarmMapedFile = 1024 / 4 * 16;
     // How many pages are to be flushed when flush ConsumeQueue
     private int flushConsumeQueueLeastPages = 2;
+    /**
+     * 异步刷盘 最长刷盘延迟间隔时间
+     * 默认值：10s（即距离上一次刷盘超过10S时，不管页数是否超过4，都会刷盘）
+     */
     private int flushCommitLogThoroughInterval = 1000 * 10;
+    /**
+     * 临时缓存池的最长刷盘延迟间隔时间
+     * 默认值：200ms（即距离上一次刷盘超过200ms时，不管页数是否超过4，都会刷盘）
+     */
     private int commitCommitLogThoroughInterval = 200;
     private int flushConsumeQueueThoroughInterval = 1000 * 60;
     @ImportantField
@@ -212,6 +244,11 @@ public class MessageStoreConfig {
      */
     @ImportantField
     private BrokerRole brokerRole = BrokerRole.ASYNC_MASTER;
+    /**
+     * 刷盘类型
+     * 默认值：ASYNC_FLUSH（异步刷盘）
+     * SYNC_FLUSH：同步刷盘
+     */
     @ImportantField
     private FlushDiskType flushDiskType = FlushDiskType.ASYNC_FLUSH;
     private int syncFlushTimeout = 1000 * 5;
@@ -227,6 +264,10 @@ public class MessageStoreConfig {
      */
     @ImportantField
     private boolean cleanFileForciblyEnable = true;
+    /**
+     * 是否启动文件内存预热
+     * 默认值：不启动
+     */
     private boolean warmMapedFileEnable = false;
     private boolean offsetCheckInSlave = false;
     private boolean debugLockEnable = false;
@@ -236,11 +277,20 @@ public class MessageStoreConfig {
      */
     private boolean duplicationEnable = false;
     private boolean diskFallRecorded = true;
+    /**
+     * broker持有锁的时间：即往CommitLog中写上一个消息目前所花费的时间
+     * 默认值：1000ms（即1s）
+     * 超过该时间，则表示系统繁忙
+     */
     private long osPageCacheBusyTimeOutMills = 1000;
     private int defaultQueryMaxNum = 32;
 
     @ImportantField
     private boolean transientStorePoolEnable = false;
+    /**
+     * 临时存储池中buffer数
+     * 默认值：5个
+     */
     private int transientStorePoolSize = 5;
     private boolean fastFailIfNoBufferInStorePool = false;
     /**
@@ -753,7 +803,7 @@ public class MessageStoreConfig {
     }
 
     /**
-     * 当前节点不是从节点 且 异步刷盘策略 且 transientStorePoolEnable参数配置为true
+     * 启用commitLog临时存储池的条件：当前节点不是从节点（Slave） 且 异步刷盘策略（flushDiskType=ASYNC_FLUSH） 且 transientStorePoolEnable参数配置为true
      * Enable transient commitLog store pool only if transientStorePoolEnable is true and the FlushDiskType is
      * ASYNC_FLUSH
      *

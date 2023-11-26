@@ -57,6 +57,9 @@ import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * BrokerOuterAPI：Broker访问外部的api
+ */
 public class BrokerOuterAPI {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final RemotingClient remotingClient;
@@ -112,16 +115,6 @@ public class BrokerOuterAPI {
 
     /**
      * broker向NameServer进行注册
-     * @param clusterName
-     * @param brokerAddr
-     * @param brokerName
-     * @param brokerId
-     * @param haServerAddr
-     * @param topicConfigWrapper
-     * @param filterServerList
-     * @param oneway
-     * @param timeoutMills
-     * @param compressed
      * @return
      */
     public List<RegisterBrokerResult> registerBrokerAll(
@@ -203,11 +196,6 @@ public class BrokerOuterAPI {
 
     /**
      * 注册broker
-     * @param namesrvAddr
-     * @param oneway
-     * @param timeoutMills
-     * @param requestHeader
-     * @param body
      */
     private RegisterBrokerResult registerBroker(
             final String namesrvAddr,
@@ -302,6 +290,16 @@ public class BrokerOuterAPI {
         throw new MQBrokerException(response.getCode(), response.getRemark(), brokerAddr);
     }
 
+    /**
+     * 是否需要注册
+     * @param clusterName
+     * @param brokerAddr
+     * @param brokerName
+     * @param brokerId
+     * @param topicConfigWrapper
+     * @param timeoutMills
+     * @return
+     */
     public List<Boolean> needRegister(
             final String clusterName,
             final String brokerAddr,

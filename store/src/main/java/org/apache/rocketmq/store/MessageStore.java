@@ -62,6 +62,11 @@ public interface MessageStore {
      * @param msg MessageInstance to store
      * @return a CompletableFuture for the result of store operation
      */
+    /**
+     * 处理、存储消息
+     * @param msg  需存储的MessageInstance
+     * @return
+     */
     default CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
         return CompletableFuture.completedFuture(putMessage(msg));
     }

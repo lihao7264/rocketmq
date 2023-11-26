@@ -56,8 +56,8 @@ import org.apache.rocketmq.remoting.common.RemotingUtil;
 public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     /**
-     * Broker过期时间，默认120秒（2分钟）
-     * 如果当前时间大于最后修改时间加上Broker过期时间，则剔除该Broker
+     * Broker过期的默认时间是120秒（2分钟）
+     * 如果当前时间大于 最后修改时间+Broker过期时间，则剔除该Broker
      */
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     /**

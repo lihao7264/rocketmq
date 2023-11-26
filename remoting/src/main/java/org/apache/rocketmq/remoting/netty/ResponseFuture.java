@@ -24,38 +24,87 @@ import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.common.SemaphoreReleaseOnlyOnce;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 响应的Future
+ */
 public class ResponseFuture {
+    /**
+     * 请求id
+     */
     private final int opaque;
+    /**
+     * 处理的连接
+     */
     private final Channel processChannel;
+    /**
+     * 超时时间
+     */
     private final long timeoutMillis;
+    /**
+     * 异步发送回调函数
+     */
     private final InvokeCallback invokeCallback;
+    /**
+     * 请求开始时间
+     */
     private final long beginTimestamp = System.currentTimeMillis();
+    /**
+     * 闭锁：同步发送等待返回
+     */
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
+    /**
+     * 构建SemaphoreReleaseOnlyOnce对象，保证信号量本次只被释放一次，防止并发操作引起线程安全问题
+     */
     private final SemaphoreReleaseOnlyOnce once;
 
+    /**
+     * cas保证回调函数只被调一次
+     */
     private final AtomicBoolean executeCallbackOnlyOnce = new AtomicBoolean(false);
+    /**
+     * 响应结果
+     */
     private volatile RemotingCommand responseCommand;
+    /**
+     * 是否发送请求成功
+     */
     private volatile boolean sendRequestOK = true;
+    /**
+     * 失败原因
+     */
     private volatile Throwable cause;
 
     public ResponseFuture(Channel channel, int opaque, long timeoutMillis, InvokeCallback invokeCallback,
         SemaphoreReleaseOnlyOnce once) {
+        // 请求id
         this.opaque = opaque;
+        // 处理请求的连接
         this.processChannel = channel;
+        // 超时时间
         this.timeoutMillis = timeoutMillis;
+        // 回调函数
         this.invokeCallback = invokeCallback;
+        // SemaphoreReleaseOnlyOnce对象，保证信号量本次只被释放一次，防止并发操作引起线程安全问题
         this.once = once;
     }
 
+    /**
+     * 执行回调
+     */
     public void executeInvokeCallback() {
         if (invokeCallback != null) {
+            // 通过cas保证只允许一次调用
             if (this.executeCallbackOnlyOnce.compareAndSet(false, true)) {
+                // 执行回调器的回调方法operationComplete
                 invokeCallback.operationComplete(this);
             }
         }
     }
 
+    /**
+     * SemaphoreReleaseOnlyOnce对象，保证信号量本次只被释放一次，防止并发操作引起线程安全问题
+     */
     public void release() {
         if (this.once != null) {
             this.once.release();
@@ -67,13 +116,26 @@ public class ResponseFuture {
         return diff > this.timeoutMillis;
     }
 
+    /**
+     * 同步等待响应结果
+     * @param timeoutMillis   超时时间
+     * @return
+     */
     public RemotingCommand waitResponse(final long timeoutMillis) throws InterruptedException {
+        // 使用countDownLatch等待给定的时间
         this.countDownLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
+        // 响应结果
         return this.responseCommand;
     }
 
+    /**
+     *  存入响应结果 并 唤醒等待的线程
+     * @param responseCommand  响应结果
+     */
     public void putResponse(final RemotingCommand responseCommand) {
+        // 存入结果
         this.responseCommand = responseCommand;
+        // 倒计数减去1，唤醒等待的线程
         this.countDownLatch.countDown();
     }
 

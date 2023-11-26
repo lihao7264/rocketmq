@@ -21,15 +21,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 // 固定40个字节
 public class IndexHeader {
-    // IndexHeader的大小（固定40个字节）
+    /**
+     * IndexHeader的大小（固定40个字节）
+     */
     public static final int INDEX_HEADER_SIZE = 40;
-    // 第一条消息的存储时间的偏移位置
-    // 4*8字节+2*4字节=40字节
+    /**
+     * 第一条消息的存储时间的偏移位置
+     * 4*8字节+2*4字节=40字节
+     */
     private static int beginTimestampIndex = 0;
+    /**
+     *
+     */
     private static int endTimestampIndex = 8;
     private static int beginPhyoffsetIndex = 16;
     private static int endPhyoffsetIndex = 24;
+    /**
+     * hash槽数
+     */
     private static int hashSlotcountIndex = 32;
+    /**
+     * 索引文件头中索引数的下标
+     */
     private static int indexCountIndex = 36;
     // 对应的ByteBuffer
     private final ByteBuffer byteBuffer;

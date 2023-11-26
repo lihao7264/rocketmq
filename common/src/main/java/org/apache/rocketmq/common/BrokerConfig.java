@@ -68,14 +68,24 @@ public class BrokerConfig {
     @ImportantField
     private boolean autoCreateTopicEnable = true;
 
+    /**
+     * 是否开启集群topic（默认topic：DefaultCluster）
+     * 默认开启
+     */
     private boolean clusterTopicEnable = true;
-
+    /**
+     * 是否开启broker topic（默认topic：localhostname）
+     * 默认开启
+     */
     private boolean brokerTopicEnable = true;
     @ImportantField
     private boolean autoCreateSubscriptionGroup = true;
     private String messageStorePlugIn = "";
     @ImportantField
     private String msgTraceTopicName = TopicValidator.RMQ_SYS_TRACE_TOPIC;
+    /**
+     * 启动trace topic
+     */
     @ImportantField
     private boolean traceTopicEnable = false;
     /**
@@ -156,6 +166,10 @@ public class BrokerConfig {
     private long waitTimeMillsInHeartbeatQueue = 31 * 1000;
     private long waitTimeMillsInTransactionQueue = 3 * 1000;
 
+    /**
+     * broker处理请求的起始服务时间
+     * 默认值：0（即任何时候都能服务）
+     */
     private long startAcceptSendRequestTimeStamp = 0L;
 
     private boolean traceOn = true;

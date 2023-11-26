@@ -64,6 +64,7 @@ public class MappedFileQueue {
 
     /**
      * 刷盘最新位置：已flush（刷盘）到的位置(某一个mappedFile中的一个位置（偏移地址）)
+     *  CommitLog的整体已刷盘物理偏移量
      */
     protected long flushedWhere = 0;
     /**
@@ -212,6 +213,7 @@ public class MappedFileQueue {
      */
     public boolean load() {
         /**
+         * 存放目录
          * 情况一：获取消息日志文件（CommitLog日志文件）的存放目录
          *        目录路径取自broker.conf文件中配置的storePathCommitLog属性
          *        默认值：{$ROCKETMQ_HOME}/store/commitlog/
@@ -301,24 +303,27 @@ public class MappedFileQueue {
 
     /**
      * MappedFileQueue#getLastMappedFile(long, boolean)
-     * 根据偏移量获取最后一个MappedFile（最新的）
-     * @param startOffset  开始偏移量
-     * @param needCreate   需要创建
+     * 根据偏移量 创建或获取最后一个MappedFile（最新的）
+     * @param startOffset  开始偏移量（起始offset）
+     * @param needCreate   是否创建
      * @return
      */
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
-        // 获取最后一个MappedFile（最新的）
+        // 从mappedFiles集合中获取最后一个MappedFile（最新的）
         MappedFile mappedFileLast = getLastMappedFile();
-        // 最后一个MappedFile（最新的）为空的话，则createOffset为MappedFile的开始偏移（新的最后一个MappedFile= 开始偏移量的整除结果）
+        /**
+         * 如果为null（最后一个MappedFile（最新的）为空），则设置创建索引，默认为0（即新建的文件为第一个mappedFile文件，从0开始）
+         * createOffset为MappedFile的开始偏移（新的最后一个MappedFile= 开始偏移量的整除结果）
+         */
         if (mappedFileLast == null) {
             createOffset = startOffset - (startOffset % this.mappedFileSize);
         }
-        // 如果最后一个MappedFile（最新的）满了，则获取新的文件偏移（新的最后一个MappedFile=最后一个MappedFile+文件大小）
+        // 如果最后一个MappedFile（最新的）满了，则设置新mappedFile文件的创建索引 = 上一个文件的起始索引（即文件名） + mappedFileSize
         if (mappedFileLast != null && mappedFileLast.isFull()) {
             createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
         }
-        // 尝试创建 某个偏移量的 MappedFile
+        // 如果需创建新mappedFile，则根据起始索引创建新的mappedFile
         if (createOffset != -1 && needCreate) {
             return tryCreateMappedFile(createOffset);
         }
@@ -328,35 +333,48 @@ public class MappedFileQueue {
 
     /**
      * MappedFileQueue#tryCreateMappedFile(long)
-     * 尝试创建某个偏移量的两个MappedFile
-     * @param createOffset
+     * 尝试创建某个偏移量的两个MappedFile（创建commitlog文件，映射MappedFile）
+     * @param createOffset  起始索引（即新文件的文件名）
      * @return
      */
     protected MappedFile tryCreateMappedFile(long createOffset) {
-        // 下一个文件的路径（文件名=偏移量）
-        // 文件名：20位，不足的话，则左边补0
+        /**
+         * 下一个文件路径：{storePathCommitLog}/createOffset（文件名=createOffset（即起始物理offset））
+         * 文件名=偏移量
+         * 文件名：20位，不足的话，则左边补0
+         */
         String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
         // 下下个文件的路径（文件名=偏移量+每个文件的大小）
+        //
+        /**
+         * 下下一个文件路径 {storePathCommitLog}/createOffset+mappedFileSize（文件名（即起始offset）=createOffset + mappedFileSize）
+         */
         String nextNextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset
                 + this.mappedFileSize);
-        // 创建下一个文件和下下个文件
+        // 真正创建下一个文件和下下个文件
         return doCreateMappedFile(nextFilePath, nextNextFilePath);
     }
 
     /**
      * 创建下一个文件和下下个文件
-     * @param nextFilePath      下一个文件的路径
-     * @param nextNextFilePath   下下个文件的路径
+     * 创建commitlog文件，映射MappedFile
+     * @param nextFilePath      要创建的下一个文件路径
+     * @param nextNextFilePath    要创建的下下一个文件路径
      * @return
      */
     protected MappedFile doCreateMappedFile(String nextFilePath, String nextNextFilePath) {
         MappedFile mappedFile = null;
-        //
+        /**
+         * 如果allocateMappedFileService不为null，则异步的创建MappedFile
+         * CommitLog的MappedFileQueue初始化时会初始化allocateMappedFileService，因此一般都不为null
+         */
         if (this.allocateMappedFileService != null) {
+            // 添加两个请求到处理任务池，然后阻塞等待异步创建默认1G大小的MappedFile
             mappedFile = this.allocateMappedFileService.putRequestAndReturnMappedFile(nextFilePath,
                     nextNextFilePath, this.mappedFileSize);
         } else {
             try {
+                // 同步创建MappedFile
                 mappedFile = new MappedFile(nextFilePath, this.mappedFileSize);
             } catch (IOException e) {
                 log.error("create mappedFile exception", e);
@@ -364,15 +382,24 @@ public class MappedFileQueue {
         }
 
         if (mappedFile != null) {
+            // 如果是第一次创建，则设置标志位firstCreateInQueue为true
             if (this.mappedFiles.isEmpty()) {
                 mappedFile.setFirstCreateInQueue(true);
             }
+            // 将创建的mappedFile加入mappedFiles集合中
             this.mappedFiles.add(mappedFile);
         }
 
         return mappedFile;
     }
 
+    /**
+     * MappedFileQueue#getLastMappedFile(long)
+     *  根据偏移量获取最后一个MappedFile（最新的）
+     *  创建新的MappedFile
+     * @param startOffset  指定起始offset（开始偏移量）
+     * @return
+     */
     public MappedFile getLastMappedFile(final long startOffset) {
         return getLastMappedFile(startOffset, true);
     }
@@ -386,6 +413,7 @@ public class MappedFileQueue {
 
         while (!this.mappedFiles.isEmpty()) {
             try {
+                // 从mappedFiles中获取最后一个mappedFile
                 mappedFileLast = this.mappedFiles.get(this.mappedFiles.size() - 1);
                 break;
             } catch (IndexOutOfBoundsException e) {
@@ -606,15 +634,32 @@ public class MappedFileQueue {
         return deleteCount;
     }
 
+    /**
+     * 执行刷盘
+     * @param flushLeastPages  最少刷盘的页数
+     * @return
+     */
     public boolean flush(final int flushLeastPages) {
         boolean result = true;
+        /**
+         * 根据最新刷盘物理位置flushedWhere，去找到对应的MappedFile。
+         * 如果flushedWhere为0：表示还未开始写消息，则获取第一个MappedFile
+         */
         MappedFile mappedFile = this.findMappedFileByOffset(this.flushedWhere, this.flushedWhere == 0);
         if (mappedFile != null) {
+            // 获取存储时间戳，storeTimestamp在appendMessagesInner方法中被更新
             long tmpTimeStamp = mappedFile.getStoreTimestamp();
+            /**
+             * 执行刷盘操作
+             */
             int offset = mappedFile.flush(flushLeastPages);
+            // 获取最新刷盘物理偏移量
             long where = mappedFile.getFileFromOffset() + offset;
+            // 刷盘结果
             result = where == this.flushedWhere;
+            // 更新刷盘物理位置
             this.flushedWhere = where;
+            // 如果最少刷盘页数为0，则更新存储时间戳
             if (0 == flushLeastPages) {
                 this.storeTimestamp = tmpTimeStamp;
             }
@@ -623,13 +668,28 @@ public class MappedFileQueue {
         return result;
     }
 
+    /**
+     * 提交刷盘
+     * @param commitLeastPages    最少提交的页数
+     * @return  n false表示提交了部分数据
+     */
     public boolean commit(final int commitLeastPages) {
         boolean result = true;
+        /**
+         * 根据最新提交物理位置committedWhere，去找到对应的MappedFile。
+         *  如果committedWhere为0，表示还未开始提交消息，则获取第一个MappedFile
+         */
         MappedFile mappedFile = this.findMappedFileByOffset(this.committedWhere, this.committedWhere == 0);
         if (mappedFile != null) {
+            /**
+             * 执行提交操作
+             */
             int offset = mappedFile.commit(commitLeastPages);
+            // 获取最新提交物理偏移量
             long where = mappedFile.getFileFromOffset() + offset;
+            // 如果不相等，表示提交了部分数据
             result = where == this.committedWhere;
+            // 更新提交物理位置
             this.committedWhere = where;
         }
 
@@ -645,10 +705,10 @@ public class MappedFileQueue {
      */
     /**
      * MappedFileQueue#findMappedFileByOffset(long, boolean)
-     * 通过offset找到所在的mappedFile
+     * 通过offset（偏移量）找到所在的mappedFile
      * @param offset                 目标偏移量
      * @param returnFirstOnNotFound  如果根据偏移量未找到目标文件，则返回第一个MappedFile（最老的）
-     * @return
+     * @return   MappedFile 或者 null (当未找到且returnFirstOnNotFound为false时).
      */
     public MappedFile findMappedFileByOffset(final long offset, final boolean returnFirstOnNotFound) {
         try {
@@ -658,7 +718,7 @@ public class MappedFileQueue {
             MappedFile lastMappedFile = this.getLastMappedFile();
             // 第一个MappedFile、最后一个MappedFile都不为空的情况话，则进入
             if (firstMappedFile != null && lastMappedFile != null) {
-                // 偏移量 < 第一个MappedFile的映射起始偏移量 或 偏移量 >= 最后一个MappedFile的映射最大偏移量，则抛出异常
+                // 如果偏移量不再正确范围内（偏移量 < 第一个MappedFile的映射起始偏移量 或 偏移量 >= 最后一个MappedFile的映射最大偏移量），则打印异常日志
                 if (offset < firstMappedFile.getFileFromOffset() || offset >= lastMappedFile.getFileFromOffset() + this.mappedFileSize) {
                     LOG_ERROR.warn("Offset not matched. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
                             offset,
@@ -667,20 +727,22 @@ public class MappedFileQueue {
                             this.mappedFileSize,
                             this.mappedFiles.size());
                 } else {
+                    // 获取当前offset属于的MappedFile在mappedFiles集合中的索引位置
                     // 计算下标（该偏移量所在的文件）：（（偏移量/每个文件的大小）-（第一个文件的映射起始偏移量/每个文件的大小））
                     int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));
                     MappedFile targetFile = null;
                     try {
-                        // 获取对应的下标的MappedFile
+                        // 根据下标，获取对应的下标的MappedFile
                         targetFile = this.mappedFiles.get(index);
                     } catch (Exception ignored) {
                     }
-                    // 目标文件不为空 & 目标偏移量>=目标文件的映射起始偏移量 & 目标偏移量<=目标文件的映射起始偏移量+文件的大小
+                    // 如果指定offset在targetFile的offset范围内，则返回
+                    // 目标文件不为空 & 目标偏移量>=目标文件的映射起始偏移量 & 目标偏移量<=目标文件结束偏移量（目标文件的映射起始偏移量+文件的大小）
                     if (targetFile != null && offset >= targetFile.getFileFromOffset()
                             && offset < targetFile.getFileFromOffset() + this.mappedFileSize) {
                         return targetFile;
                     }
-                    // 遍历MappedFile集合，找到目标文件
+                    // 遍历MappedFile集合，依次对每个MappedFile的offset范围进行判断，找到对应的tmpMappedFile并返回
                     for (MappedFile tmpMappedFile : this.mappedFiles) {
                         if (offset >= tmpMappedFile.getFileFromOffset()
                                 && offset < tmpMappedFile.getFileFromOffset() + this.mappedFileSize) {
@@ -688,7 +750,7 @@ public class MappedFileQueue {
                         }
                     }
                 }
-
+                // 到这里表示未找到任何MappedFile，如果returnFirstOnNotFound为true，则返回第一个文件
                 if (returnFirstOnNotFound) {
                     // 遇到异常，允许返回第一个
                     return firstMappedFile;

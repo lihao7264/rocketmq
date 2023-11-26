@@ -421,7 +421,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
     }
 
     /**
-     * 注册Netty默认请求处理器
+     * 注册Netty请求处理器
      * @param requestCode 请求编码
      * @param processor 请求处理器
      * @param executor 请求执行器
@@ -558,11 +558,15 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         }
     }
 
+    /**
+     * 处理服务端请求
+     */
     @ChannelHandler.Sharable
     class NettyServerHandler extends SimpleChannelInboundHandler<RemotingCommand> {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
+            // Netty服务端业务请求处理器的入口
             processMessageReceived(ctx, msg);
         }
     }

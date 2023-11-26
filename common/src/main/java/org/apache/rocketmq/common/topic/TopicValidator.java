@@ -42,6 +42,13 @@ public class TopicValidator {
     private static final Set<String> SYSTEM_TOPIC_SET = new HashSet<String>();
 
     /**
+     * 不被允许使用的系统topic：
+     * SCHEDULE_TOPIC_XXXX
+     * RMQ_SYS_TRANS_HALF_TOPIC
+     * RMQ_SYS_TRANS_OP_HALF_TOPIC
+     * TRANS_CHECK_MAX_TIME_TOPIC
+     * SELF_TEST_TOPIC
+     * OFFSET_MOVED_EVENT
      * Topics'set which client can not send msg!
      */
     private static final Set<String> NOT_ALLOWED_SEND_TOPIC_SET = new HashSet<String>();

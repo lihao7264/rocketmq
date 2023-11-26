@@ -21,6 +21,7 @@ import org.apache.rocketmq.common.compression.CompressionType;
 public class MessageSysFlag {
 
     /**
+     * 第一位
      * Meaning of each bit in the system flag
      *
      * | bit    | 7 | 6 | 5         | 4        | 3           | 2                | 1                | 0                |
@@ -34,8 +35,11 @@ public class MessageSysFlag {
     public final static int COMPRESSED_FLAG = 0x1;
     public final static int MULTI_TAGS_FLAG = 0x1 << 1;
     public final static int TRANSACTION_NOT_TYPE = 0;
+    // 事务准备消息：第三位为1
     public final static int TRANSACTION_PREPARED_TYPE = 0x1 << 2;
+    // 事务提交消息：第四位为1
     public final static int TRANSACTION_COMMIT_TYPE = 0x2 << 2;
+    // 事务回滚消息：第三、四位都为1
     public final static int TRANSACTION_ROLLBACK_TYPE = 0x3 << 2;
     public final static int BORNHOST_V6_FLAG = 0x1 << 4;
     public final static int STOREHOSTADDRESS_V6_FLAG = 0x1 << 5;

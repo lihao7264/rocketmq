@@ -47,6 +47,10 @@ public class NettySystemConfig {
         Boolean.parseBoolean(System.getProperty(COM_ROCKETMQ_REMOTING_NETTY_POOLED_BYTE_BUF_ALLOCATOR_ENABLE, "false"));
     public static final int CLIENT_ASYNC_SEMAPHORE_VALUE = //
         Integer.parseInt(System.getProperty(COM_ROCKETMQ_REMOTING_CLIENT_ASYNC_SEMAPHORE_VALUE, "65535"));
+    /**
+     * 客户端单向发送的Semaphore信号量默认为65535
+     * 通过配置"com.rocketmq.remoting.clientOnewaySemaphoreValue"系统变量更改
+     */
     public static final int CLIENT_ONEWAY_SEMAPHORE_VALUE =
         Integer.parseInt(System.getProperty(COM_ROCKETMQ_REMOTING_CLIENT_ONEWAY_SEMAPHORE_VALUE, "65535"));
     public static int socketSndbufSize =

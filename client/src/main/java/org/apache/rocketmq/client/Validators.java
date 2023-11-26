@@ -30,7 +30,13 @@ import org.apache.rocketmq.common.topic.TopicValidator;
  * Common Validator
  */
 public class Validators {
+    /**
+     * 组的最大长度
+     */
     public static final int CHARACTER_MAX_LENGTH = 255;
+    /**
+     * topic最大长度
+     */
     public static final int TOPIC_MAX_LENGTH = 127;
 
     /**
@@ -53,39 +59,58 @@ public class Validators {
         }
     }
 
+    /**
+     * 校验消息的合法性
+     * @param msg
+     * @param defaultMQProducer
+     * @throws MQClientException
+     */
     public static void checkMessage(Message msg, DefaultMQProducer defaultMQProducer) throws MQClientException {
+        // 如果消息为null，抛出异常
         if (null == msg) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL, "the message is null");
         }
         // topic
+        /*
+         * 校验topic
+         */
+        // 如果topic为空 或 长度大于127个字符 或 topic字符串不符合 "^[%|a-zA-Z0-9_-]+$"模式（即包含非法字符），则抛出异常
         Validators.checkTopic(msg.getTopic());
+        // 如果当前topic是不为允许使用的系统topic（比如：SCHEDULE_TOPIC_XXXX），则抛出异常
         Validators.isNotAllowedSendTopic(msg.getTopic());
 
         // body
+        // 如果消息体为null，则抛出异常
         if (null == msg.getBody()) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL, "the message body is null");
         }
-
+        // 如果消息体为空数组，则抛出异常
         if (0 == msg.getBody().length) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL, "the message body length is zero");
         }
-
+        //如果消息 字节数组长度大于4194304（即消息的大小大于4M），则抛出异常
         if (msg.getBody().length > defaultMQProducer.getMaxMessageSize()) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL,
                 "the message body size over max value, MAX: " + defaultMQProducer.getMaxMessageSize());
         }
     }
 
+    /**
+     * 校验topic
+     * @param topic
+     * @throws MQClientException
+     */
     public static void checkTopic(String topic) throws MQClientException {
+        // 如果topic为空，则抛出异常
         if (UtilAll.isBlank(topic)) {
             throw new MQClientException("The specified topic is blank", null);
         }
-
+        // 如果topic长度大于127个字符，则抛出异常
         if (topic.length() > TOPIC_MAX_LENGTH) {
             throw new MQClientException(
                 String.format("The specified topic is longer than topic max length %d.", TOPIC_MAX_LENGTH), null);
         }
-
+        // 如果topic字符串不符合 "^[%|a-zA-Z0-9_-]+$"模式（即包含非法字符），则抛出异常
         if (isTopicOrGroupIllegal(topic)) {
             throw new MQClientException(String.format(
                     "The specified topic[%s] contains illegal characters, allowing only %s", topic,
@@ -101,6 +126,7 @@ public class Validators {
     }
 
     public static void isNotAllowedSendTopic(String topic) throws MQClientException {
+        // 如果当前topic是不为允许使用的系统topic（比如：SCHEDULE_TOPIC_XXXX），则抛出异常
         if (TopicValidator.isNotAllowedSendTopic(topic)) {
             throw new MQClientException(
                     String.format("Sending message to topic[%s] is forbidden.", topic), null);

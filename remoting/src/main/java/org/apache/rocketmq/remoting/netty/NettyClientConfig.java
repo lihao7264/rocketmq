@@ -26,6 +26,10 @@ public class NettyClientConfig {
      */
     private int clientWorkerThreads = NettySystemConfig.clientWorkerSize;
     private int clientCallbackExecutorThreads = Runtime.getRuntime().availableProcessors();
+    /**
+     * 客户端单向发送的Semaphore信号量默认为65535
+     * 通过配置"com.rocketmq.remoting.clientOnewaySemaphoreValue"系统变量更改
+     */
     private int clientOnewaySemaphoreValue = NettySystemConfig.CLIENT_ONEWAY_SEMAPHORE_VALUE;
     private int clientAsyncSemaphoreValue = NettySystemConfig.CLIENT_ASYNC_SEMAPHORE_VALUE;
     private int connectTimeoutMillis = NettySystemConfig.connectTimeoutMillis;

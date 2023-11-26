@@ -22,6 +22,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 消息对象
+ */
 public class Message implements Serializable {
     private static final long serialVersionUID = 8445773977080406428L;
     // topic
@@ -29,7 +32,9 @@ public class Message implements Serializable {
     private int flag;
     // 扩展信息
     private Map<String, String> properties;
+    // 消息体
     private byte[] body;
+    // 使用事务消息时的相关字段
     private String transactionId;
 
     public Message() {
@@ -40,18 +45,20 @@ public class Message implements Serializable {
     }
 
     public Message(String topic, String tags, String keys, int flag, byte[] body, boolean waitStoreMsgOK) {
+        // 给字段赋值
         this.topic = topic;
         this.flag = flag;
         this.body = body;
-
+        // 如果指定了 tag, 则调用 setTags 方法
         if (tags != null && tags.length() > 0) {
             this.setTags(tags);
         }
-
+        // 如果指定了 keys, 则调用 setKeys 方法
         if (keys != null && keys.length() > 0) {
             this.setKeys(keys);
         }
-
+        // waitStoreMsgOK：表示是否要在这条 Message 落到磁盘上之后才返回应答
+        // 这里该变量的值默认为 true
         this.setWaitStoreMsgOK(waitStoreMsgOK);
     }
 
