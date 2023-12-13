@@ -34,6 +34,7 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
  * FlushCommitLogService
  * FlushDiskWatcher
  * ReputMessageService
+ * TransactionalMessageCheckService
  * 等等
  */
 public abstract class ServiceThread implements Runnable {

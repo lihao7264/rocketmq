@@ -112,6 +112,10 @@ public class BrokerConfig {
 
     private int flushConsumerOffsetHistoryInterval = 1000 * 60;
 
+    /**
+     * 是否拒绝事务消息
+     * 默认值：false
+     */
     @ImportantField
     private boolean rejectTransactionMessage = false;
 
@@ -135,10 +139,19 @@ public class BrokerConfig {
 
     private int filterServerNums = 0;
 
+    /**
+     * broker是否支持长轮询
+     * 默认值：false
+     * 支持
+     */
     private boolean longPollingEnable = true;
 
     private long shortPollingTimeMills = 1000;
 
+    /**
+     * 是否启动改变事件 需通知该消费者组的每一个消费者
+     * 默认值：false（需通知）
+     */
     private boolean notifyConsumerIdsChangedEnable = true;
 
     private boolean highSpeedMode = false;
@@ -148,7 +161,10 @@ public class BrokerConfig {
     private int commercialTransCount = 1;
     private int commercialBigCount = 1;
     private int commercialBaseCount = 1;
-
+    /**
+     * 是否读取消息到堆内存中
+     * 默认值：true
+     */
     private boolean transferMsgByHeap = true;
     private int maxDelayTime = 40;
 
@@ -190,9 +206,13 @@ public class BrokerConfig {
     private long filterDataCleanTimeSpan = 24 * 3600 * 1000;
 
     // whether do filter when retry.
+    /**
+     * 重试topic是否支持filter过滤
+     *  默认值：false（即重试topic不支持过滤）
+     */
     private boolean filterSupportRetry = false;
     /**
-     * 是否开启消息的SQL过滤功能
+     * 是否开启消息的SQL过滤功能（SQL92）
      * 默认为false（不开启）
      */
     private boolean enablePropertyFilter = false;
@@ -211,9 +231,11 @@ public class BrokerConfig {
      * The minimum time of the transactional message  to be checked firstly, one message only exceed this time interval
      * that can be checked.
      */
+
     /**
-     * 指定TM在多少秒内应将最终确认状态发送给TC，否则引发消息回查。
-     * 默认为60秒
+     * 事务超时时间（指定TM在多少秒内应将最终确认状态发送给TC，否则引发消息回查。）
+     * 默认值：6s（即超过6s还未被commit 或 rollback的事物消息将会进行回查）
+     * 可通过broker.conf配置transactionTimeOut属性更改
      */
     @ImportantField
     private long transactionTimeOut = 6 * 1000;
@@ -222,8 +244,10 @@ public class BrokerConfig {
      * The maximum number of times the message was checked, if exceed this value, this message will be discarded.
      */
     /**
-     * 指定最多回查次数，超过后将丢弃消息并记录错误日志。
-     * 默认15次。
+     * 指定事务回查最大次数
+     * 默认值：15
+     * 超过次数则丢弃消息 并 记录错误日志
+     * 可通过broker.conf配置transactionCheckMax属性更改
      */
     @ImportantField
     private int transactionCheckMax = 15;
@@ -232,8 +256,9 @@ public class BrokerConfig {
      * Transaction message check interval.
      */
     /**
-     * 指定设置的多次消息回查的时间间隔为多少秒
-     * 默认为60秒。
+     * 获取事务回查时间间隔（即指定设置的多次消息回查的时间间隔为多少秒）
+     * 默认值：60s
+     * 可通过broker.conf配置transactionCheckInterval属性更改
      */
     @ImportantField
     private long transactionCheckInterval = 60 * 1000;

@@ -204,14 +204,34 @@ public class MessageStoreConfig {
      */
     private int commitCommitLogThoroughInterval = 200;
     private int flushConsumeQueueThoroughInterval = 1000 * 60;
+    /**
+     * 从内存中拉取消息的阈值
+     * 默认值：256KB
+     */
     @ImportantField
     private int maxTransferBytesOnMessageInMemory = 1024 * 256;
+    /**
+     * 表示从内存中拉取消息的阈值
+     * 默认值：32条
+     */
     @ImportantField
     private int maxTransferCountOnMessageInMemory = 32;
+    /**
+     * 从磁盘上拉取消息的阈值
+     * 默认值：64KB
+     */
     @ImportantField
     private int maxTransferBytesOnMessageInDisk = 1024 * 64;
+    /**
+     * 从磁盘上拉取消息的阈值
+     * 默认值：8条
+     */
     @ImportantField
     private int maxTransferCountOnMessageInDisk = 8;
+    /**
+     * 访问的消息在内存中的最大比例（即broker服务最大可使用物理内存比例）
+     * 默认值：40%
+     */
     @ImportantField
     private int accessMessageInMemoryMaxRatio = 40;
     @ImportantField
@@ -251,12 +271,26 @@ public class MessageStoreConfig {
      */
     @ImportantField
     private FlushDiskType flushDiskType = FlushDiskType.ASYNC_FLUSH;
+    /**
+     * 同步刷盘超时时间
+     * 默认值：5s
+     */
     private int syncFlushTimeout = 1000 * 5;
+    /**
+     * 主从同步超时时间
+     * 默认值：3s
+     */
     private int slaveTimeout = 3000;
-    // 延时等级：若指定的延时等级为3，则延迟时长为10s。
-    // 延迟等级是从1开始计数的。
-    // 配置文件：broker.properties
+    /**
+     * 延时等级：若指定的延时等级为3，则延迟时长为10s。
+     * 延迟等级是从1开始计数的。
+     * 配置文件：broker.properties
+     */
     private String messageDelayLevel = "1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h";
+    /**
+     * 每次执行间隔flushDelayOffsetInterval时间
+     * 默认值：10s
+     */
     private long flushDelayOffsetInterval = 1000 * 10;
     /**
      * 是否强制启用清除文件
@@ -269,6 +303,10 @@ public class MessageStoreConfig {
      * 默认值：不启动
      */
     private boolean warmMapedFileEnable = false;
+    /**
+     * 从节点是否支持offset检查
+     * 默认值：false（不支持）
+     */
     private boolean offsetCheckInSlave = false;
     private boolean debugLockEnable = false;
     /**
@@ -276,6 +314,10 @@ public class MessageStoreConfig {
      * 默认值：false
      */
     private boolean duplicationEnable = false;
+    /**
+     * 是否需记录commitLog磁盘的剩余可拉取的消息字节数
+     * 默认值：true
+     */
     private boolean diskFallRecorded = true;
     /**
      * broker持有锁的时间：即往CommitLog中写上一个消息目前所花费的时间

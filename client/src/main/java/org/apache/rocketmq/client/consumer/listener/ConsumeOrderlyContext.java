@@ -23,7 +23,15 @@ import org.apache.rocketmq.common.message.MessageQueue;
  */
 public class ConsumeOrderlyContext {
     private final MessageQueue messageQueue;
+    /**
+     * context是否自动提交
+     * 默认值：true
+     */
     private boolean autoCommit = true;
+    /**
+     * 延迟提交新的消费请求
+     * suspendTimeMillis的默认值：-1（即延迟1s后重新消费）
+     */
     private long suspendCurrentQueueTimeMillis = -1;
 
     public ConsumeOrderlyContext(MessageQueue messageQueue) {

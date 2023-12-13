@@ -695,12 +695,22 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 获取索引数据buffer
+     * 根据消费点位（ConsumeQueue中的第几个存储单元）定位到物理偏移量，然后截取缓冲区（包含要拉取的消息的索引数据 及其 MappedFile之后的全部数据）
+     * @param startIndex  起始消费点位（ConsumeQueue中的第几个存储单元）
+     * @return   截取的索引缓存区
+     */
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
         int mappedFileSize = this.mappedFileSize;
+        // 物理偏移量
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
+        // 如果大于ConsumeQueue的最小物理偏移量
         if (offset >= this.getMinLogicOffset()) {
+            // 根据物理偏移量查找ConsumeQueue文件对应的MappedFile
             MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset);
             if (mappedFile != null) {
+                // 从该MappedFile中截取一段ByteBuffer，这段内存存储着将要拉取的消息的索引数据及其之后的全部数据
                 return mappedFile.selectMappedBuffer((int) (offset % mappedFileSize));
             }
         }

@@ -95,7 +95,7 @@ public class CommitLog {
      */
     private final ThreadLocal<PutMessageThreadLocal> putMessageThreadLocal;
     /**
-     * <"topic-queueId",当前queueId下最大的相对偏移量>
+     * <"topic-queueId",当前queueId下最大的相对偏移量(相对第几个消息)>
       */
     protected HashMap<String/* topic-queueid */, Long/* offset */> topicQueueTable = new HashMap<String, Long>(1024);
     /**
@@ -811,11 +811,8 @@ public class CommitLog {
      * @return
      */
     public CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
-        // Set the storage time
         // 设置存储时间（获取当前系统时间作为消息写入时间）
         msg.setStoreTimestamp(System.currentTimeMillis());
-        // Set the message body BODY CRC (consider the most appropriate setting
-        // on the client)
         // 设置消息正文CRC（编码后的消息体）
         msg.setBodyCRC(UtilAll.crc32(msg.getBody()));
         // Back to Results
@@ -824,7 +821,6 @@ public class CommitLog {
         StoreStatsService storeStatsService = this.defaultMessageStore.getStoreStatsService();
         // 从消息中获取topic
         String topic = msg.getTopic();
-//        int queueId msg.getQueueId();
         /**
          * 1.处理延迟消息的逻辑
          * 替换topic和queueId，保存真实topic和queueId
@@ -838,7 +834,6 @@ public class CommitLog {
         //  如果不是事务消息 或 commit提交事务（事务消息的提交阶段）
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
-            // Delay Delivery
             // 获取延迟级别，判断是否是延迟消息（延迟级别大于0）
             if (msg.getDelayTimeLevel() > 0) {
                 // 如果延迟级别大于最大级别，则设置为最大级别
@@ -849,10 +844,10 @@ public class CommitLog {
                 topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;
                 // 根据延迟等级获取对应的延迟队列id， 延迟队列queueId = delayLevel - 1
                 int queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
-
-                // Backup real topic, queueId
-                // 备份真实的topic、queueId
-                // 使用扩展属性REAL_TOPIC 记录真实topic
+                /**
+                 * 备份真实的topic、queueId
+                 * 使用扩展属性REAL_TOPIC 记录真实topic
+                 */
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_TOPIC, msg.getTopic());
                 // 使用扩展属性REAL_QID 记录真实queueId
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
@@ -986,8 +981,6 @@ public class CommitLog {
         }
 
         PutMessageResult putMessageResult = new PutMessageResult(PutMessageStatus.PUT_OK, result);
-
-        // Statistics
         // 存储数据的统计信息更新
         // 每个topic存储消息的次数
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).add(1);
@@ -997,7 +990,7 @@ public class CommitLog {
          * 4.提交刷盘请求，将会根据刷盘策略进行刷盘
          */
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
-        /*
+        /*（
          * 5.提交副本请求，用于主从同步
          *   每次写完一条消息后，提交flush请求和replica请求
          */
@@ -1257,11 +1250,21 @@ public class CommitLog {
         return -1;
     }
 
+    /**
+     * 根据消息的物理偏移量和消息大小截取消息所属的一段内存
+     * @param offset  消息的物理偏移量
+     * @param size    消息大小
+     * @return        截取消息所属的一段内存
+     */
     public SelectMappedBufferResult getMessage(final long offset, final int size) {
+        // 获取CommitLog文件大小（默认值：1G）
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        // 根据offset找到其所属的CommitLog文件对应的MappedFile
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, offset == 0);
         if (mappedFile != null) {
+            // 该mappedFile的起始偏移量
             int pos = (int) (offset % mappedFileSize);
+            // 从pos开始截取size大小的一段buffer内存
             return mappedFile.selectMappedBuffer(pos, size);
         }
         return null;

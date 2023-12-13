@@ -38,6 +38,9 @@ import org.apache.rocketmq.remoting.netty.AsyncNettyRequestProcessor;
 import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 消费管理处理器
+ */
 public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implements NettyRequestProcessor {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
 
@@ -47,15 +50,25 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         this.brokerController = brokerController;
     }
 
+    /**
+     * 处理请求
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     @Override
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
         switch (request.getCode()) {
             case RequestCode.GET_CONSUMER_LIST_BY_GROUP:
+                // 返回指定group的所有客户端id集合
                 return this.getConsumerListByGroup(ctx, request);
             case RequestCode.UPDATE_CONSUMER_OFFSET:
+                // 更新消费偏移量
                 return this.updateConsumerOffset(ctx, request);
             case RequestCode.QUERY_CONSUMER_OFFSET:
+                // 查询消费偏移量
                 return this.queryConsumerOffset(ctx, request);
             default:
                 break;
@@ -68,18 +81,28 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         return false;
     }
 
+    /**
+     *  返回指定group的所有客户端id集合
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     public RemotingCommand getConsumerListByGroup(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
+        // 创建响应命令对象
         final RemotingCommand response =
             RemotingCommand.createResponseCommand(GetConsumerListByGroupResponseHeader.class);
+        // 解析请求头
         final GetConsumerListByGroupRequestHeader requestHeader =
             (GetConsumerListByGroupRequestHeader) request
                 .decodeCommandCustomHeader(GetConsumerListByGroupRequestHeader.class);
-
+        // 从broker的consumerTable中获取指定group的消费者组信息
         ConsumerGroupInfo consumerGroupInfo =
             this.brokerController.getConsumerManager().getConsumerGroupInfo(
                 requestHeader.getConsumerGroup());
         if (consumerGroupInfo != null) {
+            // 获取所有客户端id集合
             List<String> clientIds = consumerGroupInfo.getAllClientId();
             if (!clientIds.isEmpty()) {
                 GetConsumerListByGroupResponseBody body = new GetConsumerListByGroupResponseBody();
@@ -102,6 +125,11 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         return response;
     }
 
+    /**
+     * 更新消费偏移量
+     * @param ctx
+     * @param request
+     */
     private RemotingCommand updateConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
         final RemotingCommand response =
@@ -116,8 +144,15 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         return response;
     }
 
+    /**
+     * 查询消费偏移量
+     * @param ctx
+     * @param request
+     * @return
+     */
     private RemotingCommand queryConsumerOffset(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
+        // 响应对象
         final RemotingCommand response =
             RemotingCommand.createResponseCommand(QueryConsumerOffsetResponseHeader.class);
         final QueryConsumerOffsetResponseHeader responseHeader =
@@ -125,22 +160,33 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
         final QueryConsumerOffsetRequestHeader requestHeader =
             (QueryConsumerOffsetRequestHeader) request
                 .decodeCommandCustomHeader(QueryConsumerOffsetRequestHeader.class);
-
+        /**
+         *  根据 ConsumerGroup、Topic、QueueId 查询offset，实际上从broker端的offsetTable map集合缓存属性中获取
+         *  在broker启动时，从broker的${ROCKETMQ_HOME}/store/config/consumerOffset.json中加载
+         */
         long offset =
             this.brokerController.getConsumerOffsetManager().queryOffset(
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
 
         if (offset >= 0) {
+            // 大于等于0，则存入响应结果返回
             responseHeader.setOffset(offset);
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
         } else {
+            // 小于0表示在offsetTable缓存中未找到
+            // 根据topic和queueId获取消费队列ConsumeQueue的最小的逻辑偏移量offset
             long minOffset =
                 this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
+            /**
+             * 如果消费队列最新偏移量小于等于0 且 该消费队列的0偏移量数据还在内存中
+             * 表示为新消息队列 且 消息未清理过 且 数据量不是很大
+             */
             if (minOffset <= 0
                 && !this.brokerController.getMessageStore().checkInDiskByConsumeOffset(
                 requestHeader.getTopic(), requestHeader.getQueueId(), 0)) {
+                // 返回0，从0开始读取消费
                 responseHeader.setOffset(0L);
                 response.setCode(ResponseCode.SUCCESS);
                 response.setRemark(null);

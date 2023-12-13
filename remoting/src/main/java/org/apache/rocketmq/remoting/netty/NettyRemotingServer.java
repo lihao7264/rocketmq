@@ -141,6 +141,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         super(nettyServerConfig.getServerOnewaySemaphoreValue(), nettyServerConfig.getServerAsyncSemaphoreValue());
         // 创建Netty服务端启动类，引导启动服务端
         this.serverBootstrap = new ServerBootstrap();
+        // Netty服务端配置类
         this.nettyServerConfig = nettyServerConfig;
         this.channelEventListener = channelEventListener;
         // 服务器回调执行线程数量，默认值为4
@@ -149,8 +150,10 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             publicThreadNums = 4;
         }
 
-        // 创建一个公共线程池，负责处理某些请求业务
-        // 举例：发送异步消息回调，线程名以NettyServerPublicExecutor_为前缀
+        /**
+         * 创建一个公共线程池（线程数），负责处理某些请求业务
+         *  举例：发送异步消息回调，线程名以NettyServerPublicExecutor_为前缀
+         */
         this.publicExecutor = Executors.newFixedThreadPool(publicThreadNums, new ThreadFactory() {
             private AtomicInteger threadIndex = new AtomicInteger(0);
 
@@ -159,13 +162,15 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                 return new Thread(r, "NettyServerPublicExecutor_" + this.threadIndex.incrementAndGet());
             }
         });
-        /*
+        /**
          * 是否使用epoll模型 并 初始化Boss EventLoopGroup（线程名以NettyEPOLLBoss_为前缀）和Worker EventLoopGroup（线程名以NettyServerEPOLLSelector_为前缀）这两个事件循环组
          * 如果是linux内核 且 指定开启epoll 且 系统支持epoll，才会使用EpollEventLoopGroup，否则使用NioEventLoopGroup
+         * https://www.yuque.com/lijiaxiaodi/di99ys/hogwiikoskuamlq7#Eermz
          */
         if (useEpoll()) {
             /**
-             *  采用epoll
+             *
+             *  采用epoll 生成boss组，线程数为1
              **/
             this.eventLoopGroupBoss = new EpollEventLoopGroup(1, new ThreadFactory() {
                 private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -176,6 +181,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                 }
             });
 
+            // 创建worker组 epoll的
             this.eventLoopGroupSelector = new EpollEventLoopGroup(nettyServerConfig.getServerSelectorThreads(), new ThreadFactory() {
                 private AtomicInteger threadIndex = new AtomicInteger(0);
                 private int threadTotal = nettyServerConfig.getServerSelectorThreads();
@@ -244,7 +250,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
     public void start() {
         /**
          * 1.创建默认事件处理器组，线程数默认8个线程，线程名以NettyServerCodecThread_为前缀。
-         *   主要用于执行在真正执行业务逻辑之前需进行的SSL验证、编解码、空闲检查、网络连接管理等操作
+         *   主要用于执行在真正执行业务逻辑之前需进行的SSL验证、编解码、空闲检查、网络连接管理等操作（即用于执行channelHandler逻辑）
          *   其工作时间位于IO线程组之后，process线程组之前
          */
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
@@ -258,36 +264,66 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                         return new Thread(r, "NettyServerCodecThread_" + this.threadIndex.incrementAndGet());
                     }
                 });
-        /*
-         * 2 准备一些共享handler
+        /**
+         * 2 准备一些共享handler（即Netty的ChannelHandler对象）
          *    包括handshakeHandler、encoder、connectionManageHandler、serverHandler
          */
         prepareSharableHandlers();
-        /*
+        /**
          * 3 配置NettyServer的启动参数
          *   包括handshakeHandler、encoder、connectionManageHandler、serverHandler
          */
         ServerBootstrap childHandler =
                 /**
-                 * 配置bossGroup为此前创建的eventLoopGroupBoss，默认1个线程，用于处理连接时间
-                 * 配置workerGroup为此前创建的eventLoopGroupSelector，默认3个线程，用于处理IO事件
+                 * 配置bossGroup为此前创建的eventLoopGroupBoss，默认1个线程，用于处理连接事件（accept事件）
+                 * 配置workerGroup为此前创建的eventLoopGroupSelector，默认3个线程，用于处理IO事件（read和write事件）
                  * */
                 this.serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupSelector)
-                        // IO模型
+                        // IO模型：根据是否是Linux内核，创建不同的socketChannel用于accept
                         .channel(useEpoll() ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
                         /**
-                         *  设置通道的选项参数， 对于服务端而言就是ServerSocketChannel， 客户端而言就是SocketChannel
+                         *  设置通道的选项参数， 对于服务端而言是ServerSocketChannel， 客户端而言是SocketChannel
                          *  option主要是针对boss线程组，child主要是针对worker线程组
-                         *  对应的是tcp/ip协议listen函数中的backlog参数
+                         */
+                        /**
+                         * 默认值1024
+                         * 对应的是tcp/ip协议（具体实现为操作系统层面的协议栈代码）listen函数中的backlog参数（用于初始化服务端可连接队列）
+                         * 服务端处理客户端的连接请求是顺序处理的，当服务器无过多线程处理连接请求时，需将客户端的连接请求放入到队列中
+                         * SO_BACKLOG指定该队列的大小
+                         * 内核要维护 两个队列：
+                         *    未连接队列(syns queue)：保存客户端已发来Syn连接请求（表示至少一个Syn已到达），但还未完成三次握手
+                         *    已连接队列(accept queue)：保存已完成三次握手，但还未调用 socket库的accept方法
+                         * SO_BACKLOG的作用：当 syncQueue + acceptQueue > SO_BACKLOG时，新连接会被TCP内核拒绝掉
                          */
                         .option(ChannelOption.SO_BACKLOG, nettyServerConfig.getServerSocketBacklog())
-                        // 对应于套接字选项中的SO_REUSEADDR：表示允许重复使用本地地址和端口
+                        /**
+                         * SO_REUSEADDR ：地址复用相关
+                         * 对应于套接字选项中的SO_REUSEADDR：表示允许重复使用本地地址和端口
+                         * 一个端口释放后会等待两分钟后才能再被使用，SO_REUSEADDR是让端口释放后立即可以再次被使用
+                         */
                         .option(ChannelOption.SO_REUSEADDR, true)
-                        // 对应于套接字选项中的SO_KEEPALIVE：用于设置TCP连接，当设置该选项以后，连接会测试链接的状态
+                        /**
+                         * 保活机制/心跳机制
+                         * 对应于套接字选项中的SO_KEEPALIVE：用于设置TCP连接，当设置该选项后，连接会测试链接的状态
+                         * 问题：如果开启SO_KEEPALIVE后，当客户端向服务端发送消息后，服务端未向客户端回复，则客户端可能不知道 服务器是否已挂掉。
+                         * 解决办法：客户端当超过一定时间后自动给服务器发送一个空报文，等待服务端返回
+                         *
+                         * 关掉tcp保护机制的四个原因：
+                         *  原因一：超时的默认时间为2小时，意味只有当服务端未向客户端响应数据，客户端需2小时后才能发现服务端的问题，参数是可配置的
+                         *  原因二：保活机制是属于传输层的，当发现连接挂掉后不能执行应用层的相应逻辑
+                         *  原因三：Namesrv实现了应用层的心跳机制，用于处理Broker下线问题
+                         *  原因四：不能判断连接是否可用，只能判断连接是否存活，TCP连接中的另外一方突然断电关闭连接，则对端是无法知晓的。
+                         *
+                         */
                         .option(ChannelOption.SO_KEEPALIVE, false)
-                        // 对应于套接字选项中的TCP_NODELAY：使用与Nagle算法有关
+                        //  childOption：用于指定worker组线程（即客户端已和服务端完成了三次握手，进入read/write步骤）
+                        /**
+                         * 对应于套接字选项中的TCP_NODELAY：使用与Nagle算法有关
+                         *   控制是否开启Nagle算法，提高较慢的广域网传输效率：减少需传输的数据次数，优化网络 既然相同的数据要减少传输次数，
+                         *   则必要导致通信过程中数据包的增多
+                         */
                         .childOption(ChannelOption.TCP_NODELAY, true)
-                        // 配置本地地址，监听端口为此前设置的9876
+                        // 指定accept监听端口：9876
                         .localAddress(new InetSocketAddress(this.nettyServerConfig.getListenPort()))
                         /**
                          *  设置用于为 Channel 的请求提供服务的 ChannelHandler
@@ -298,9 +334,15 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                                 /**
                                  * ChannelPipeline一个ChannelHandler的链表
                                  * Netty处理请求基于责任链（其中的ChannelHandler就用于处理请求）
+                                 *  handshakeHandler、encoder、connectionManageHandler、serverHandler都标注了Sharable注解，表示公用Handler，无需为每个socket连接创建相应的handler
+                                 * inboundHandler: handshakeHandler -> decoder -> idleState -> connectManager -> serverHandler
+                                 * outboundHandler : encoder -> idleState -> connectManager -> serverHandler
                                  */
                                 ch.pipeline()
-                                        // 处理TSL协议握手的Handler
+                                        /**
+                                         * handshakeHandler：处理TSL协议握手的Handler
+                                         *  当客户端配置了useTls = true，为服务端动态创建SSLHandler 并 动态删除自己
+                                         */
                                         .addLast(defaultEventExecutorGroup, HANDSHAKE_HANDLER_NAME, handshakeHandler)
                                         // 为defaultEventExecutorGroup，添加handler
                                         .addLast(defaultEventExecutorGroup,
@@ -309,14 +351,21 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                                                 // RocketMQ自定义的请求编码器
                                                 new NettyDecoder(),
                                                 /**
-                                                 * Netty自带的心跳管理器，主要用于检测远端是否存活
+                                                 * 心跳机制
+                                                 * Netty自带的心跳管理器，主要用于检测远端是否存活（配置时间：120秒）
                                                  * 即测试端一定时间内未接受到被测试端消息和一定时间内向被测试端发送消息的超时时间为120秒
+                                                 * （当 120s内 不存在 读｜写时，IdleStateHandler通过pipeline传递userEventTriggered()方法 且 内容类型为IdleStateEvent）
                                                  */
                                                 new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
-                                                // 连接管理器：负责连接的激活、断开、超时、异常等事件
+                                                /**
+                                                 * connectionManageHandler（连接管理器处理器）：负责连接激活、断开、超时、异常等事件
+                                                 *     即用于接受心跳事件，然后进行处理
+                                                 *  用于当一定时间内发现对端连接未进行读｜写数据进行关闭通道
+                                                 */
                                                 connectionManageHandler,
                                                 /**
-                                                 * 服务请求处理器：处理RemotingCommand消息（即请求和响应的业务处理） 并 返回相应的处理结果。
+                                                 * （核心）服务请求处理器：处理所有RemotingCommand消息（即请求和响应的业务处理） 并 返回相应的处理结果。
+                                                 *      请求被封装为RemotingCommand对象，然后被serverHandler内部的逻辑处理
                                                  * 举例：broker注册、producer/consumer获取Broker、Topic信息等请求都是该处理器处理
                                                  *      serverHandler最终会将请求根据不同的消息类型code分发到不同的process线程池处理
                                                  */
@@ -341,18 +390,18 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             childHandler.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(
                     nettyServerConfig.getWriteBufferLowWaterMark(), nettyServerConfig.getWriteBufferHighWaterMark()));
         }
-        // 分配缓冲区
+        // 开启Netty内存池管理：分配缓冲区
         if (nettyServerConfig.isServerPooledByteBufAllocatorEnable()) {
             childHandler.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
         }
 
         try {
-            /*
-             * 启动Netty服务
+            /**
+             * 启动Netty服务：绑定端口，sync()同步等待
              */
             ChannelFuture sync = this.serverBootstrap.bind().sync();
             InetSocketAddress addr = (InetSocketAddress) sync.channel().localAddress();
-            // 设置端口号，默认9876
+            // 设置并保存端口号，默认9876
             this.port = addr.getPort();
         } catch (InterruptedException e1) {
             throw new RuntimeException("this.serverBootstrap.bind().sync() InterruptedException", e1);
@@ -366,7 +415,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             this.nettyEventExecutor.start();
         }
         /**
-         * 启动定时任务，初始启动3秒后执行，此后每隔1秒执行一次
+         * 启动定时任务，初始启动3秒后执行，此后每隔1秒执行一次（即执行周期1s）
          * 扫描responseTable，将超时的ResponseFuture直接移除 并 执行这些超时ResponseFuture的回调
          */
         this.timer.scheduleAtFixedRate(new TimerTask() {
@@ -374,6 +423,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             @Override
             public void run() {
                 try {
+                    // 定期调用以扫描过期的请求
                     NettyRemotingServer.this.scanResponseTable();
                 } catch (Throwable e) {
                     log.error("scanResponseTable exception", e);
@@ -564,6 +614,12 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
     @ChannelHandler.Sharable
     class NettyServerHandler extends SimpleChannelInboundHandler<RemotingCommand> {
 
+        /**
+         * channelRead0() 与 channelRead() 方法的区别：channelRead0只关注数据类型为RemotingCommand的数据
+         * @param ctx
+         * @param msg
+         * @throws Exception
+         */
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
             // Netty服务端业务请求处理器的入口
@@ -609,6 +665,12 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             }
         }
 
+        /**
+         * 当RocketMQ配置时间 默认120秒 期间此channel未进行 读｜写操作时，则通道内会传播此方法
+         * @param ctx
+         * @param evt
+         * @throws Exception
+         */
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
             if (evt instanceof IdleStateEvent) {
@@ -616,6 +678,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                 if (event.state().equals(IdleState.ALL_IDLE)) {
                     final String remoteAddress = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
                     log.warn("NETTY SERVER PIPELINE: IDLE exception [{}]", remoteAddress);
+                    // 关闭通道
                     RemotingUtil.closeChannel(ctx.channel());
                     if (NettyRemotingServer.this.channelEventListener != null) {
                         NettyRemotingServer.this

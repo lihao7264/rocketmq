@@ -16,17 +16,21 @@
  */
 package org.apache.rocketmq.client.consumer.store;
 
+/**
+ * 读取消费点位的三种类型
+ */
 public enum ReadOffsetType {
     /**
-     * From memory
+     * 仅从本地内存offsetTable读取
      */
     READ_FROM_MEMORY,
     /**
-     * From storage
+     * 仅从broker中读取
      */
     READ_FROM_STORE,
     /**
-     * From memory,then from storage
+     * 先从本地内存offsetTable读取，读不到再从远程broker中读取。
+     * 当出现异常 或 在本地 或 broker未找到对于消费者组的offset记录，则算作第一次启动该消费者组，返回-1。
      */
     MEMORY_FIRST_THEN_STORE;
 }

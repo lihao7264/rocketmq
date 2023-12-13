@@ -32,7 +32,7 @@ public class SendResult {
      */
     private String msgId;
     /**
-     * 消息队列
+     * 发送的消息队列
      */
     private MessageQueue messageQueue;
     /**
@@ -45,6 +45,7 @@ public class SendResult {
     private String transactionId;
     /**
      * broker生成的MsgId
+     * 包含broker地址 和 消息offset
      */
     private String offsetMsgId;
     private String regionId;

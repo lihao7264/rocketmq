@@ -25,11 +25,20 @@ import org.apache.rocketmq.common.consistenthash.Node;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * 一致性哈希分配策略。
+ * 基于一致性哈希算法分配。
  * Consistent Hashing queue algorithm
  */
 public class AllocateMessageQueueConsistentHash extends AbstractAllocateMessageQueueStrategy {
 
+    /**
+     * 物理节点的虚拟节点的数量，不可小于0，默认10。
+     */
     private final int virtualNodeCnt;
+
+    /**
+     * 自定义的哈希函数，默认为MD5Hash。
+     */
     private final HashFunction customHashFunction;
 
     public AllocateMessageQueueConsistentHash() {
@@ -47,7 +56,14 @@ public class AllocateMessageQueueConsistentHash extends AbstractAllocateMessageQ
         this.virtualNodeCnt = virtualNodeCnt;
         this.customHashFunction = customHashFunction;
     }
-
+    /**
+     * 分配队列方法
+     * @param consumerGroup 当前consumerGroup
+     * @param currentCID 当前currentCID
+     * @param mqAll     当前topic的mq，已排序
+     * @param cidAll 当前consumerGroup的clientId集合，已排序
+     * @return
+     */
     @Override
     public List<MessageQueue> allocate(String consumerGroup, String currentCID, List<MessageQueue> mqAll,
         List<String> cidAll) {
@@ -56,12 +72,16 @@ public class AllocateMessageQueueConsistentHash extends AbstractAllocateMessageQ
         if (!check(consumerGroup, currentCID, mqAll, cidAll)) {
             return result;
         }
-
+        // 包装为ClientNode对象
         Collection<ClientNode> cidNodes = new ArrayList<ClientNode>();
         for (String cid : cidAll) {
             cidNodes.add(new ClientNode(cid));
         }
 
+        /**
+         * 实例化ConsistentHashRouter对象，用于产生虚拟节点、构建哈希环
+         * 如果未指定哈希函数，则采用MD5Hash作为哈希函数
+         */
         final ConsistentHashRouter<ClientNode> router; //for building hash ring
         if (customHashFunction != null) {
             router = new ConsistentHashRouter<ClientNode>(cidNodes, virtualNodeCnt, customHashFunction);
@@ -70,8 +90,13 @@ public class AllocateMessageQueueConsistentHash extends AbstractAllocateMessageQ
         }
 
         List<MessageQueue> results = new ArrayList<MessageQueue>();
+        /**
+         * 遍历消息队列集合
+         */
         for (MessageQueue mq : mqAll) {
+            // 对messageQueue进行hash计算，按顺时针找到最近的consumer节点
             ClientNode clientNode = router.routeNode(mq.toString());
+            // 如果是当前consumer，则加入结果集
             if (clientNode != null && currentCID.equals(clientNode.getKey())) {
                 results.add(mq);
             }
@@ -87,6 +112,9 @@ public class AllocateMessageQueueConsistentHash extends AbstractAllocateMessageQ
     }
 
     private static class ClientNode implements Node {
+        /**
+         * 客户端id
+         */
         private final String clientID;
 
         public ClientNode(String clientID) {

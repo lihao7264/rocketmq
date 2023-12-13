@@ -43,19 +43,40 @@ public class TransactionalMessageCheckService extends ServiceThread {
     @Override
     public void run() {
         log.info("Start transaction check service thread!");
+        /**
+         * 获取事务回查时间间隔（即指定设置的多次消息回查的时间间隔为多少秒）
+         * 默认值：60s
+         * 可通过broker.conf配置transactionCheckInterval属性更改
+         */
         long checkInterval = brokerController.getBrokerConfig().getTransactionCheckInterval();
+        // 循环回查
         while (!this.isStopped()) {
+            // 最多等待60s执行一次回查
             this.waitForRunning(checkInterval);
         }
         log.info("End transaction check service thread!");
     }
-
+    /**
+     * 被唤醒 或 等待时间到后，执行事务回查
+     */
     @Override
     protected void onWaitEnd() {
+        /**
+         * 事务超时时间
+         * 默认值：6s（即超过6s还未被commit 或 rollback的事物消息将会进行回查）
+         * 可通过broker.conf配置transactionTimeOut属性更改
+         */
         long timeout = brokerController.getBrokerConfig().getTransactionTimeOut();
+        /**
+         * 事务回查最大次数
+         * 默认值：15
+         * 超过次数则丢弃消息
+         * 可通过broker.conf配置transactionCheckMax属性更改
+         */
         int checkMax = brokerController.getBrokerConfig().getTransactionCheckMax();
         long begin = System.currentTimeMillis();
         log.info("Begin to check prepare message, begin time:{}", begin);
+        // 执行事务回查
         this.brokerController.getTransactionalMessageService().check(timeout, checkMax, this.brokerController.getTransactionalMessageCheckListener());
         log.info("End to check prepare message, consumed time:{}", System.currentTimeMillis() - begin);
     }

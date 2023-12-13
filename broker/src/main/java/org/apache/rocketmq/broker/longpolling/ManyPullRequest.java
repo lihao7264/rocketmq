@@ -19,7 +19,14 @@ package org.apache.rocketmq.broker.longpolling;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 挂起请求
+ * ManyPullRequest包含多个pullRequest的对象，内部有一个集合
+ */
 public class ManyPullRequest {
+    /**
+     * pullRequest对象集合
+     */
     private final ArrayList<PullRequest> pullRequestList = new ArrayList<>();
 
     public synchronized void addPullRequest(final PullRequest pullRequest) {

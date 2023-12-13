@@ -51,6 +51,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * Broker2Client：broker请求客户端类
+ */
 public class Broker2Client {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final BrokerController brokerController;
@@ -59,15 +62,28 @@ public class Broker2Client {
         this.brokerController = brokerController;
     }
 
+    /**
+     * 向producer发起事务状态回查请求
+     * @param group            生产者组
+     * @param channel          连接
+     * @param requestHeader    请求头
+     * @param messageExt       half消息
+     */
     public void checkProducerTransactionState(
         final String group,
         final Channel channel,
         final CheckTransactionStateRequestHeader requestHeader,
         final MessageExt messageExt) throws Exception {
+        /**
+         * 构建请求命令对象
+         * Code：CHECK_TRANSACTION_STATE
+         */
         RemotingCommand request =
             RemotingCommand.createRequestCommand(RequestCode.CHECK_TRANSACTION_STATE, requestHeader);
+        // 设置消息体为half消息
         request.setBody(MessageDecoder.encode(messageExt, false));
         try {
+            // 向该producer发起单向请求
             this.brokerController.getRemotingServer().invokeOneway(channel, request, 10);
         } catch (Exception e) {
             log.error("Check transaction failed because invoke producer exception. group={}, msgId={}, error={}",
@@ -81,6 +97,11 @@ public class Broker2Client {
         return this.brokerController.getRemotingServer().invokeSync(channel, request, 10000);
     }
 
+    /**
+     * 通知消费者变更
+     * @param channel       连接
+     * @param consumerGroup 消费者组
+     */
     public void notifyConsumerIdsChanged(
         final Channel channel,
         final String consumerGroup) {
@@ -88,13 +109,15 @@ public class Broker2Client {
             log.error("notifyConsumerIdsChanged consumerGroup is null");
             return;
         }
-
+        // 构建请求头
         NotifyConsumerIdsChangedRequestHeader requestHeader = new NotifyConsumerIdsChangedRequestHeader();
         requestHeader.setConsumerGroup(consumerGroup);
+        // 构建远程命令对象，请求code为NOTIFY_CONSUMER_IDS_CHANGED
         RemotingCommand request =
             RemotingCommand.createRequestCommand(RequestCode.NOTIFY_CONSUMER_IDS_CHANGED, requestHeader);
 
         try {
+            // 发送单向请求，无需等待客户端回应
             this.brokerController.getRemotingServer().invokeOneway(channel, request, 10);
         } catch (Exception e) {
             log.error("notifyConsumerIdsChanged exception. group={}, error={}", consumerGroup, e.toString());

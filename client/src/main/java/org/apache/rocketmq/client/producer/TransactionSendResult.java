@@ -17,6 +17,9 @@
 package org.apache.rocketmq.client.producer;
 
 public class TransactionSendResult extends SendResult {
+    /**
+     * 本地事务状态
+     */
     private LocalTransactionState localTransactionState;
 
     public TransactionSendResult() {

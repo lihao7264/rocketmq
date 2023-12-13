@@ -115,7 +115,9 @@ public class MQClientInstance {
     private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
     private final Lock lockNamesrv = new ReentrantLock();
     private final Lock lockHeartbeat = new ReentrantLock();
-    // <brokerName,<brokerId,ip地址>>：保存每个broker 的主从请求地址（brokerName到brokerAddr地址的映射关系）
+    /**
+     *  <brokerName,<brokerId,ip地址>>：保存每个broker 的主从请求地址（brokerName到brokerAddr地址的映射关系）
+     */
     private final ConcurrentMap<String/* Broker Name */, HashMap<Long/* brokerId */, String/* address */>> brokerAddrTable =
         new ConcurrentHashMap<String, HashMap<Long, String>>();
     private final ConcurrentMap<String/* Broker Name */, HashMap<String/* address */, Integer>> brokerVersionTable =
@@ -253,24 +255,27 @@ public class MQClientInstance {
     public void start() throws MQClientException {
 
         synchronized (this) {
+            // 只有刚创建状态才启动
             switch (this.serviceState) {
                 case CREATE_JUST:
+                    // 启动失败
                     this.serviceState = ServiceState.START_FAILED;
-                    // If not specified,looking address from name server
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
+                    // 启动Netty客户端
                     // Start request-response channel
                     this.mQClientAPIImpl.start();
-                    // Start various schedule tasks
+                    // 启动各种定时任务
                     this.startScheduledTask();
-                    // Start pull service
+                    // 启动 Push模式下，由PullMessageService服务实现消息拉取
                     this.pullMessageService.start();
-                    // Start rebalance service
+                    // 启动消息队列重平衡服务
                     this.rebalanceService.start();
-                    // Start push service
+                    // 启动DefaultMQProducerImpl
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
+                    // 正在运行
                     this.serviceState = ServiceState.RUNNING;
                     break;
                 case START_FAILED:
@@ -555,11 +560,19 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 定时持久化offset
+     * 每隔5S尝试持久化消费者偏移量（即消费进度）
+     * 广播消费模式下持久化到本地
+     * 集群消费模式下推送到broker端
+     */
     private void persistAllConsumerOffset() {
+        // 遍历所有consumer集合
         Iterator<Entry<String, MQConsumerInner>> it = this.consumerTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, MQConsumerInner> entry = it.next();
             MQConsumerInner impl = entry.getValue();
+            // 依次调用DefaultMQPushConsumerImpl#persistConsumerOffset方法持久化
             impl.persistConsumerOffset();
         }
     }
@@ -1117,15 +1130,25 @@ public class MQClientInstance {
         this.adminExtTable.remove(group);
     }
 
+    /**
+     *  立即重平衡
+     */
     public void rebalanceImmediately() {
+        // 唤醒重平衡服务，立即重平衡
         this.rebalanceService.wakeup();
     }
 
+    /**
+     * 执行重平衡
+     */
     public void doRebalance() {
+        //  遍历消费者集合（consumerTable）：<消费者组,消费者类（MQConsumerInner）>
         for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
+            // 获取一个消费者（即DefaultMQPushConsumerImpl 或 其它实例）
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {
+                    // 通过消费者本身来执行重平衡操作
                     impl.doRebalance();
                 } catch (Throwable e) {
                     log.error("doRebalance exception", e);
@@ -1158,6 +1181,12 @@ public class MQClientInstance {
         return null;
     }
 
+    /**
+     * 从brokerAddrTable中获取某个broker的地址
+     * @param brokerName     broker名
+     * @param brokerId       broker的id
+     * @param onlyThisBroker
+     */
     public FindBrokerResult findBrokerAddressInSubscribe(
         final String brokerName,
         final long brokerId,
@@ -1203,15 +1232,24 @@ public class MQClientInstance {
         return 0;
     }
 
+    /**
+     *  从topic所在的broker中获取当前consumerGroup的clientId集合（即消费者客户端id集合）
+     * @param topic
+     * @param group
+     * @return
+     */
     public List<String> findConsumerIdList(final String topic, final String group) {
+        // 随机选择一个当前topic所属的broker
         String brokerAddr = this.findBrokerAddrByTopic(topic);
         if (null == brokerAddr) {
+            // 如果broker地址为null，则请求nameserver更新topic路由信息
             this.updateTopicRouteInfoFromNameServer(topic);
             brokerAddr = this.findBrokerAddrByTopic(topic);
         }
 
         if (null != brokerAddr) {
             try {
+                // 根据brokerAddr和group 得到消费者客户端id列表
                 return this.mQClientAPIImpl.getConsumerIdListByGroup(brokerAddr, group, clientConfig.getMqClientApiTimeout());
             } catch (Exception e) {
                 log.warn("getConsumerIdListByGroup exception, " + brokerAddr + " " + group, e);
@@ -1221,11 +1259,19 @@ public class MQClientInstance {
         return null;
     }
 
+    /**
+     * 随机选取指定topic的一个broker
+     * @param topic
+     * @return
+     */
     public String findBrokerAddrByTopic(final String topic) {
+        // 获取topic路由信息
         TopicRouteData topicRouteData = this.topicRouteTable.get(topic);
         if (topicRouteData != null) {
+            // 获取全部broker地址数据
             List<BrokerData> brokers = topicRouteData.getBrokerDatas();
             if (!brokers.isEmpty()) {
+                // 随机选择一个broker返回
                 int index = random.nextInt(brokers.size());
                 BrokerData bd = brokers.get(index % brokers.size());
                 return bd.selectBrokerAddr();

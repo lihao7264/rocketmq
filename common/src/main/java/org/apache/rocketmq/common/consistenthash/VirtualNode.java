@@ -16,8 +16,19 @@
  */
 package org.apache.rocketmq.common.consistenthash;
 
+/**
+ * 虚拟节点
+ * @param <T>
+ */
 public class VirtualNode<T extends Node> implements Node {
+    /**
+     * 虚拟节点所属的物理节点
+     */
     final T physicalNode;
+
+    /**
+     * 虚拟节点下标（即物理节点对应的第几个虚拟节点）
+     */
     final int replicaIndex;
 
     public VirtualNode(T physicalNode, int replicaIndex) {
@@ -27,9 +38,15 @@ public class VirtualNode<T extends Node> implements Node {
 
     @Override
     public String getKey() {
+        // 客户端id-
         return physicalNode.getKey() + "-" + replicaIndex;
     }
 
+    /**
+     * 虚拟节点是否所属该物理节点
+     * @param pNode
+     * @return
+     */
     public boolean isVirtualNodeOf(T pNode) {
         return physicalNode.getKey().equals(pNode.getKey());
     }

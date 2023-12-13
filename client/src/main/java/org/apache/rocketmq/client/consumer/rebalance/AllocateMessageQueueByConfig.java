@@ -19,12 +19,27 @@ package org.apache.rocketmq.client.consumer.rebalance;
 import java.util.List;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 根据用户配置的消息队列分配。
+ * 直接返回用户配置的消息队列集合。
+ */
 public class AllocateMessageQueueByConfig extends AbstractAllocateMessageQueueStrategy {
+    /**
+     * 用户配置的消息队列集合
+     */
     private List<MessageQueue> messageQueueList;
-
+    /**
+     * 分配队列方法
+     * @param consumerGroup 当前consumerGroup
+     * @param currentCID 当前currentCID
+     * @param mqAll     当前topic的mq，已排序
+     * @param cidAll 当前consumerGroup的clientId集合，已排序
+     * @return
+     */
     @Override
     public List<MessageQueue> allocate(String consumerGroup, String currentCID, List<MessageQueue> mqAll,
         List<String> cidAll) {
+        // 直接返回该集合
         return this.messageQueueList;
     }
 
@@ -37,6 +52,9 @@ public class AllocateMessageQueueByConfig extends AbstractAllocateMessageQueueSt
         return messageQueueList;
     }
 
+    /**
+     * 设置自定义的消息队列集合
+     */
     public void setMessageQueueList(List<MessageQueue> messageQueueList) {
         this.messageQueueList = messageQueueList;
     }

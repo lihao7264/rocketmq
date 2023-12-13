@@ -204,21 +204,28 @@ public class RocketMQSerializable {
     }
 
     public static RemotingCommand rocketMQProtocolDecode(final ByteBuf headerBuffer, int headerLen) throws RemotingCommandException {
+        // 创建RemotingCommand对象
         RemotingCommand cmd = new RemotingCommand();
         // int code(~32767)
+        // 获取前两个字节 为相应的code码
         cmd.setCode(headerBuffer.readShort());
         // LanguageCode language
+        // 设置语言类型 JAVA、C、C++等等
         cmd.setLanguage(LanguageCode.valueOf(headerBuffer.readByte()));
         // int version(~32767)
+        // 设置版本号
         cmd.setVersion(headerBuffer.readShort());
         // int opaque
+        // 设置 opaque 请求唯一id
         cmd.setOpaque(headerBuffer.readInt());
         // int flag
+        // 设置flag标记位
         cmd.setFlag(headerBuffer.readInt());
         // String remark
         cmd.setRemark(readStr(headerBuffer, false, headerLen));
 
         // HashMap<String, String> extFields
+        // 获取extFields的长度 Map的size
         int extFieldsLength = headerBuffer.readInt();
         if (extFieldsLength > 0) {
             if (extFieldsLength > headerLen) {

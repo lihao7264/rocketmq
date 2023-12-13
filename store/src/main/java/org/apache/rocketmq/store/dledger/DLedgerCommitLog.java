@@ -135,6 +135,7 @@ public class DLedgerCommitLog extends CommitLog {
 
     @Override
     public void start() {
+        // 启动DLedgerServer
         dLedgerServer.startup();
     }
 

@@ -21,7 +21,17 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
+/**
+ * 重平衡服务
+ * RebalanceService服务是一个线程任务
+ */
 public class RebalanceService extends ServiceThread {
+
+    /**
+     * 等待时间
+     * 默认值：20s（每隔20s自动进行一次自动负载均衡）
+     * 可通过rocketmq.client.rebalance.waitInterval参数配置
+     */
     private static long waitInterval =
         Long.parseLong(System.getProperty(
             "rocketmq.client.rebalance.waitInterval", "20000"));
@@ -35,9 +45,14 @@ public class RebalanceService extends ServiceThread {
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");
-
+        /**
+         * 运行时逻辑
+         * 如果服务未停止，则在死循环中执行负载均衡
+         */
         while (!this.isStopped()) {
+            // 等待运行，默认最多等待20s，可被唤醒
             this.waitForRunning(waitInterval);
+            // 执行重平衡操作
             this.mqClientFactory.doRebalance();
         }
 

@@ -27,10 +27,22 @@ import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.utils.ThreadUtils;
 
+/**
+ * Push模式下，由PullMessageService服务实现消息拉取
+ * PullMessageService继承了ServiceThread，因此它是一个异步线程任务。
+ */
 public class PullMessageService extends ServiceThread {
     private final InternalLogger log = ClientLogger.getLog();
+    /**
+     * 等待执行的拉取消息请求集合
+     */
     private final LinkedBlockingQueue<PullRequest> pullRequestQueue = new LinkedBlockingQueue<PullRequest>();
     private final MQClientInstance mQClientFactory;
+    /**
+     * 定时执行拉取消息线程池
+     * 线程数：1个
+     * 线程名：PullMessageServiceScheduledThread
+     */
     private final ScheduledExecutorService scheduledExecutorService = Executors
         .newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
@@ -56,8 +68,13 @@ public class PullMessageService extends ServiceThread {
         }
     }
 
+    /**
+     * 下一次消息拉取
+     * @param pullRequest  拉取请求
+     */
     public void executePullRequestImmediately(final PullRequest pullRequest) {
         try {
+            // 存入pullRequestQueue集合，等待下次拉取
             this.pullRequestQueue.put(pullRequest);
         } catch (InterruptedException e) {
             log.error("executePullRequestImmediately pullRequestQueue.put", e);
@@ -76,10 +93,17 @@ public class PullMessageService extends ServiceThread {
         return scheduledExecutorService;
     }
 
+    /**
+     * 拉取消息
+     * @param pullRequest
+     */
     private void pullMessage(final PullRequest pullRequest) {
+        // 从consumerTable中获取pullRequest中保存的消费者组的消费者实例
         final MQConsumerInner consumer = this.mQClientFactory.selectConsumer(pullRequest.getConsumerGroup());
         if (consumer != null) {
+            // 强制转型
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
+            // 拉取消息
             impl.pullMessage(pullRequest);
         } else {
             log.warn("No matched consumer for the PullRequest {}, drop it", pullRequest);
@@ -89,10 +113,15 @@ public class PullMessageService extends ServiceThread {
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");
-
+        /**
+         * 运行时逻辑
+         * 如果服务未停止，则在死循环中执行拉取消息的操作
+         */
         while (!this.isStopped()) {
             try {
+                // 阻塞式的获取并移除队列的头部数据（即拉取消息的请求）
                 PullRequest pullRequest = this.pullRequestQueue.take();
+                // 根据该请求去broker拉取消息
                 this.pullMessage(pullRequest);
             } catch (InterruptedException ignored) {
             } catch (Exception e) {

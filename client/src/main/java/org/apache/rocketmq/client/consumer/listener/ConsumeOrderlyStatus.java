@@ -16,8 +16,12 @@
  */
 package org.apache.rocketmq.client.consumer.listener;
 
+/**
+ * 顺序消费状态
+ */
 public enum ConsumeOrderlyStatus {
     /**
+     * 消费成功
      * Success consumption
      */
     SUCCESS,
@@ -32,6 +36,7 @@ public enum ConsumeOrderlyStatus {
     @Deprecated
     COMMIT,
     /**
+     * 消费失败
      * Suspend current queue a moment
      */
     SUSPEND_CURRENT_QUEUE_A_MOMENT;

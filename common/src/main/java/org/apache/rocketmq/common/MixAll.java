@@ -448,16 +448,26 @@ public class MixAll {
         return null;
     }
 
+    /**
+     * 仅增加offset
+     * @param target   目标值
+     * @param value    目标对象
+     * @return  是否增加成功
+     */
     public static boolean compareAndIncreaseOnly(final AtomicLong target, final long value) {
+        // 获取目标对象目前的值
         long prev = target.get();
+        // 如果目标值大于当前值，则在循环中CAS的设置值
         while (value > prev) {
+            // 尝试CAS的设置当前值为目标值
             boolean updated = target.compareAndSet(prev, value);
+            // 如果CAS成功，则返回true
             if (updated)
                 return true;
-
+            // 如果CAS失败，则重新获取目标对象目前的值
             prev = target.get();
         }
-
+        // 获取目标对象目前的值已大于目标值，则返回false
         return false;
     }
 

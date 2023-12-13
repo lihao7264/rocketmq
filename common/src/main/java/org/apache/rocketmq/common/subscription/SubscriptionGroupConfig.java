@@ -19,23 +19,55 @@ package org.apache.rocketmq.common.subscription;
 
 import org.apache.rocketmq.common.MixAll;
 
+/**
+ * 消费者组的订阅组配置
+ */
 public class SubscriptionGroupConfig {
 
+    /**
+     * 消费分组名
+     */
     private String groupName;
 
+    /**
+     * 是否可消费
+     * 默认值：true
+     */
     private boolean consumeEnable = true;
     private boolean consumeFromMinEnable = true;
-
+    /**
+     * 是否支持消费者广播消费
+     */
     private boolean consumeBroadcastEnable = true;
 
+    /**
+     * 重试topic的消费队列数
+     * 默认值：1
+     */
     private int retryQueueNums = 1;
 
+    /**
+     * 最大重试次数
+     * 默认值：16次
+     */
     private int retryMaxTimes = 16;
 
+    /**
+     * brokerId
+     *
+     */
     private long brokerId = MixAll.MASTER_ID;
 
+    /**
+     *  如果剩余的commitLog磁盘可拉取的消息字节数 大于 broker服务最大可使用物理内存，则设置建议下一次从SLAVE broker中拉取消息
+     *  默认值：1（从broker）
+     */
     private long whichBrokerWhenConsumeSlowly = 1;
 
+    /**
+     * 当consumer发生改变时，是否支持通知同组的所有consumer
+     * 默认值：true（即支持）
+     */
     private boolean notifyConsumerIdsChangedEnable = true;
 
     public String getGroupName() {

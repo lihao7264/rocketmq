@@ -29,11 +29,21 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.ConsumeQueueExt;
 
+/**
+ * 拉消息请求挂起服务
+ */
 public class PullRequestHoldService extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+    /**
+     * topic和队列id的分隔符：@
+     */
     protected static final String TOPIC_QUEUEID_SEPARATOR = "@";
     protected final BrokerController brokerController;
     private final SystemClock systemClock = new SystemClock();
+    /**
+     * 拉取请求集合
+     * <topic@queueId,每个消息队列挂起的拉取请求集合>
+     */
     protected ConcurrentMap<String/* topic@queueId */, ManyPullRequest> pullRequestTable =
         new ConcurrentHashMap<String, ManyPullRequest>(1024);
 
@@ -41,8 +51,19 @@ public class PullRequestHoldService extends ServiceThread {
         this.brokerController = brokerController;
     }
 
+    /**
+     * 挂起请求，将请求存入pullRequestTable
+     * @param topic    请求的topic
+     * @param queueId   请求的队列id
+     * @param pullRequest   拉取请求
+     */
     public void suspendPullRequest(final String topic, final int queueId, final PullRequest pullRequest) {
+        // 构建key： topic@queueId
         String key = this.buildKey(topic, queueId);
+        /**
+         * 从缓存中尝试获取该key的值ManyPullRequest
+         * ManyPullRequest包含多个pullRequest的对象，内部有一个集合
+         */
         ManyPullRequest mpr = this.pullRequestTable.get(key);
         if (null == mpr) {
             mpr = new ManyPullRequest();
@@ -51,7 +72,7 @@ public class PullRequestHoldService extends ServiceThread {
                 mpr = prev;
             }
         }
-
+        // 存入ManyPullRequest中的pullRequestList集合中
         mpr.addPullRequest(pullRequest);
     }
 
@@ -63,18 +84,35 @@ public class PullRequestHoldService extends ServiceThread {
         return sb.toString();
     }
 
+    /**
+     * 处理挂起请求
+     */
     @Override
     public void run() {
         log.info("{} service started", this.getServiceName());
+        /**
+         * 运行时逻辑
+         * 如果服务未停止，则正常执行操作
+         */
         while (!this.isStopped()) {
             try {
+                /**
+                 * 1.阻塞线程
+                 *  定时唤醒 或 broker有新消息到达唤醒
+                 */
+                // 如果支持长轮询
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                    // 最长等待5s
                     this.waitForRunning(5 * 1000);
                 } else {
+                    // 否则等待shortPollingTimeMills，默认1s
                     this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
                 }
-
+                // 醒了后，继续后续逻辑
                 long beginLockTimestamp = this.systemClock.now();
+                /**
+                 * 2.检测pullRequestTable中的挂起的请求，如果有新消息到达则执行拉取操作
+                 */
                 this.checkHoldRequest();
                 long costTime = this.systemClock.now() - beginLockTimestamp;
                 if (costTime > 5 * 1000) {
@@ -93,14 +131,20 @@ public class PullRequestHoldService extends ServiceThread {
         return PullRequestHoldService.class.getSimpleName();
     }
 
+    /**
+     * 检测pullRequestTable中的挂起的请求，如果有新消息到达则执行拉取操作
+     */
     protected void checkHoldRequest() {
+        // 遍历pullRequestTable
         for (String key : this.pullRequestTable.keySet()) {
             String[] kArray = key.split(TOPIC_QUEUEID_SEPARATOR);
             if (2 == kArray.length) {
                 String topic = kArray[0];
                 int queueId = Integer.parseInt(kArray[1]);
+                // 获取指定consumeQueue的最大的逻辑偏移量offset
                 final long offset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                 try {
+                    // 调用notifyMessageArriving方法，尝试通知消息到达
                     this.notifyMessageArriving(topic, queueId, offset);
                 } catch (Throwable e) {
                     log.error("check hold request failed. topic={}, queueId={}", topic, queueId, e);
@@ -109,35 +153,68 @@ public class PullRequestHoldService extends ServiceThread {
         }
     }
 
+    /**
+     * 通知消息到达
+     * @param topic           请求的topic
+     * @param queueId         请求的队列id
+     * @param maxOffset       consumeQueue的最大的逻辑偏移量offset
+     */
     public void notifyMessageArriving(final String topic, final int queueId, final long maxOffset) {
         notifyMessageArriving(topic, queueId, maxOffset, null, 0, null, null);
     }
 
+    /**
+     * 通知消息到达
+     * 触发时机：
+     *  时机一：PullRequestHoldService服务定时调用。
+     *  时机二：reputMessageService服务发现新消息时可能也会调用该方法。
+     * @param topic     请求的topic
+     * @param queueId   请求的队列id
+     * @param maxOffset consumeQueue的最大的逻辑偏移量offset
+     * @param tagsCode  消息的tag的hashCode，注意：如果是定时唤醒，该参数为null
+     * @param msgStoreTime 消息存储时间，注意：如果是定时唤醒，该参数为0
+     * @param filterBitMap 过滤bitMap，注意：如果是定时唤醒，该参数为null
+     * @param properties  参数，注意：如果是定时唤醒，该参数为null
+     */
     public void notifyMessageArriving(final String topic, final int queueId, final long maxOffset, final Long tagsCode,
         long msgStoreTime, byte[] filterBitMap, Map<String, String> properties) {
+        // 构建key： topic@queueId
         String key = this.buildKey(topic, queueId);
+        /**
+         * 从缓存中尝试获取该key的值ManyPullRequest
+         *  ManyPullRequest包含多个pullRequest的对象，内部有一个集合
+         */
         ManyPullRequest mpr = this.pullRequestTable.get(key);
+        // 如果有对应的拉取请求被阻塞（即指定topic、指定queueId）
         if (mpr != null) {
+            // 获取所有的挂起请求集合
             List<PullRequest> requestList = mpr.cloneListAndClear();
             if (requestList != null) {
                 List<PullRequest> replayList = new ArrayList<PullRequest>();
-
+                // 遍历挂起的请求
                 for (PullRequest request : requestList) {
                     long newestOffset = maxOffset;
+                    // 如果最大偏移量小于等于需拉取的offset，则再次获取consumeQueue的最大的逻辑偏移量offset
                     if (newestOffset <= request.getPullFromThisOffset()) {
                         newestOffset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                     }
-
+                    // 如果最大偏移量大于需拉取的offset，则可以尝试拉取
                     if (newestOffset > request.getPullFromThisOffset()) {
+                        /**
+                         * 执行消息tagsCode过滤，如果是定时唤醒，由于tagsCode参数为null，则一定返回true
+                         */
                         boolean match = request.getMessageFilter().isMatchedByConsumeQueue(tagsCode,
                             new ConsumeQueueExt.CqExtUnit(tagsCode, msgStoreTime, filterBitMap));
                         // match by bit map, need eval again when properties is not null.
                         if (match && properties != null) {
                             match = request.getMessageFilter().isMatchedByCommitLog(null, properties);
                         }
-
+                        // 如果消息匹配过滤条件
                         if (match) {
                             try {
+                                /**
+                                 * 通过PullMessageProcessor#executeRequestWhenWakeup重新执行拉取操作
+                                 */
                                 this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
                                     request.getRequestCommand());
                             } catch (Throwable e) {
@@ -146,7 +223,7 @@ public class PullRequestHoldService extends ServiceThread {
                             continue;
                         }
                     }
-
+                    // 如果request等待超时，则还是会通过PullMessageProcessor#executeRequestWhenWakeup重新执行一次拉取操作
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
@@ -156,10 +233,12 @@ public class PullRequestHoldService extends ServiceThread {
                         }
                         continue;
                     }
-
+                    /**
+                     * 不符合条件 且 没有超时的request，重新放回replayList集合中，继续挂起
+                     */
                     replayList.add(request);
                 }
-
+                // 将还需要继续挂起的request返回去
                 if (!replayList.isEmpty()) {
                     mpr.addPullRequest(replayList);
                 }

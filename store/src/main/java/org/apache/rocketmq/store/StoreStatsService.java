@@ -61,8 +61,17 @@ public class StoreStatsService extends ServiceThread {
     private final ConcurrentMap<String, LongAdder> putMessageTopicSizeTotal =
         new ConcurrentHashMap<>(128);
 
+    /**
+     * 拉取到消息的次数统计字段
+     */
     private final LongAdder getMessageTimesTotalFound = new LongAdder();
+    /**
+     * 传输的单条消息数
+     */
     private final LongAdder getMessageTransferedMsgCount = new LongAdder();
+    /**
+     * 未拉取到消息的次数统计字段
+     */
     private final LongAdder getMessageTimesTotalMiss = new LongAdder();
     private final LinkedList<CallSnapshot> putTimesList = new LinkedList<CallSnapshot>();
 
@@ -81,10 +90,19 @@ public class StoreStatsService extends ServiceThread {
      * 写入消息的最大耗时
      */
     private volatile long putMessageEntireTimeMax = 0;
+    /**
+     * 最长的拉取消息的时间字段
+     */
     private volatile long getMessageEntireTimeMax = 0;
-    // for putMessageEntireTimeMax
+    /**
+     * 最长的拉取消息的时间字段 的修改锁
+     * for putMessageEntireTimeMax
+     */
     private ReentrantLock putLock = new ReentrantLock();
-    // for getMessageEntireTimeMax
+    /**
+     * 最长的拉取消息的时间字段 的读锁
+     * for getMessageEntireTimeMax
+     */
     private ReentrantLock getLock = new ReentrantLock();
 
     private volatile long dispatchMaxBuffer = 0;

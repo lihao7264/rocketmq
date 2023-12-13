@@ -19,7 +19,13 @@ package org.apache.rocketmq.common.message;
 import java.net.SocketAddress;
 
 public class MessageId {
+    /**
+     * broker地址
+     */
     private SocketAddress address;
+    /**
+     * 偏移
+     */
     private long offset;
 
     public MessageId(SocketAddress address, long offset) {

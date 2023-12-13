@@ -24,9 +24,18 @@ public class MessageConst {
     public static final String PROPERTY_WAIT_STORE_MSG_OK = "WAIT";
     public static final String PROPERTY_DELAY_TIME_LEVEL = "DELAY";
     public static final String PROPERTY_RETRY_TOPIC = "RETRY_TOPIC";
+    /**
+     * 真实的topic
+     */
     public static final String PROPERTY_REAL_TOPIC = "REAL_TOPIC";
+    /**
+     * 真实的队列id
+     */
     public static final String PROPERTY_REAL_QUEUE_ID = "REAL_QID";
     public static final String PROPERTY_TRANSACTION_PREPARED = "TRAN_MSG";
+    /**
+     * 生产者组
+     */
     public static final String PROPERTY_PRODUCER_GROUP = "PGROUP";
     public static final String PROPERTY_MIN_OFFSET = "MIN_OFFSET";
     public static final String PROPERTY_MAX_OFFSET = "MAX_OFFSET";
@@ -38,10 +47,22 @@ public class MessageConst {
     public static final String PROPERTY_RECONSUME_TIME = "RECONSUME_TIME";
     public static final String PROPERTY_MSG_REGION = "MSG_REGION";
     public static final String PROPERTY_TRACE_SWITCH = "TRACE_ON";
+    /**
+     * 客户端生成的uniqId
+     */
     public static final String PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX = "UNIQ_KEY";
     public static final String PROPERTY_MAX_RECONSUME_TIMES = "MAX_RECONSUME_TIMES";
+    /**
+     * 开始消费时间戳
+     */
     public static final String PROPERTY_CONSUME_START_TIMESTAMP = "CONSUME_START_TIME";
+    /**
+     * 此前该消息在half队列的offset（即第一次存放该消息的offset）
+     */
     public static final String PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET = "TRAN_PREPARED_QUEUE_OFFSET";
+    /**
+     * 回查次数
+     */
     public static final String PROPERTY_TRANSACTION_CHECK_TIMES = "TRANSACTION_CHECK_TIMES";
     public static final String PROPERTY_CHECK_IMMUNITY_TIME_IN_SECONDS = "CHECK_IMMUNITY_TIME_IN_SECONDS";
     public static final String PROPERTY_INSTANCE_ID = "INSTANCE_ID";

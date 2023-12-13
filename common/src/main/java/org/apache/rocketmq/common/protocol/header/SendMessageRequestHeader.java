@@ -73,7 +73,7 @@ public class SendMessageRequestHeader implements CommandCustomHeader {
     @CFNullable
     private String properties;
     /**
-     * 重新消费次数
+     * 重新消费次数（已重试次数）
      */
     @CFNullable
     private Integer reconsumeTimes;

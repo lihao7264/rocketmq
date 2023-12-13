@@ -17,10 +17,18 @@
 package org.apache.rocketmq.client.producer;
 // 描述本地事务执行状态
 public enum LocalTransactionState {
-    // 本地事务执行成功
+    /**
+     * 本地事务执行成功
+     * 需要提交半事务消息
+     */
     COMMIT_MESSAGE,
-    // 本地事务执行失败
+    /**
+     * 本地事务执行失败
+     * 需要回滚半事务消息
+     */
     ROLLBACK_MESSAGE,
-    // 不确定，表示需进行回查以确定本地事务的执行结果
+    /**
+     * 不确定，表示需进行回查以确定本地事务的执行结果
+     */
     UNKNOW,
 }

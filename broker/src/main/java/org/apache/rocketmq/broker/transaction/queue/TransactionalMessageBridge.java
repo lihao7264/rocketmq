@@ -50,10 +50,18 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 事务消息桥接模式
+ */
 public class TransactionalMessageBridge {
     private static final InternalLogger LOGGER = InnerLoggerFactory.getLogger(LoggerName.TRANSACTION_LOGGER_NAME);
 
+    /**
+     * <半事务消息队列,半事务消息队列对应的Op队列>
+     */
     private final ConcurrentHashMap<MessageQueue, MessageQueue> opQueueMap = new ConcurrentHashMap<>();
+
+
     private final BrokerController brokerController;
     private final MessageStore store;
     private final SocketAddress storeHost;
@@ -196,26 +204,60 @@ public class TransactionalMessageBridge {
         return store.putMessage(parseHalfMessageInner(messageInner));
     }
 
+    /**
+     * 异步的存放半消息
+     * @param messageInner  半消息
+     * @return
+     */
     public CompletableFuture<PutMessageResult> asyncPutHalfMessage(MessageExtBrokerInner messageInner) {
+        /**
+         * 1.调用parseHalfMessageInner方法解析Half消息
+         * 2.调用asyncPutMessage方法当作普通消息异步存储
+         */
         return store.asyncPutMessage(parseHalfMessageInner(messageInner));
     }
 
+    /**
+     * 解析Half消息
+     * @param msgInner  半事务消息
+     * @return
+     */
     private MessageExtBrokerInner parseHalfMessageInner(MessageExtBrokerInner msgInner) {
+        // 使用扩展属性PROPERTY_REAL_TOPIC（REAL_TOPIC） 记录原始topic（即真实的topic）
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_TOPIC, msgInner.getTopic());
+        // 使用扩展属性PROPERTY_REAL_QUEUE_ID（REAL_QID） 记录原始queueId（即真实的queueId）
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,
             String.valueOf(msgInner.getQueueId()));
+        // 设置消息系统属性sysFlag为普通消息
         msgInner.setSysFlag(
             MessageSysFlag.resetTransactionValue(msgInner.getSysFlag(), MessageSysFlag.TRANSACTION_NOT_TYPE));
+        // 设置topic为半消息topic，固定为RMQ_SYS_TRANS_HALF_TOPIC
         msgInner.setTopic(TransactionalMessageUtil.buildHalfTopic());
+        //设置queueId为0
         msgInner.setQueueId(0);
+        // 属性转换为string
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));
         return msgInner;
     }
 
+    /**
+     * 写入事务Op消息
+     * @param messageExt   half消息
+     * @param opType        Op标记 “d”
+     * @return
+     */
     public boolean putOpMessage(MessageExt messageExt, String opType) {
+        /**
+         *构建一个messageQueue
+         * topic：half消息的topic，固定为RMQ_SYS_TRANS_HALF_TOPIC
+         * queueId：half消息的topic固定为0，为对应的half消息队列
+         */
+
         MessageQueue messageQueue = new MessageQueue(messageExt.getTopic(),
             this.brokerController.getBrokerConfig().getBrokerName(), messageExt.getQueueId());
+        // 如果是“d”
         if (TransactionalMessageUtil.REMOVETAG.equals(opType)) {
+            // 则写入Op消息到messageQueue
             return addRemoveTagInTransactionOp(messageExt, messageQueue);
         }
         return true;
@@ -239,12 +281,16 @@ public class TransactionalMessageBridge {
     }
 
     public MessageExtBrokerInner renewImmunityHalfMessageInner(MessageExt msgExt) {
+        // 重建内部消息对象
         MessageExtBrokerInner msgInner = renewHalfMessageInner(msgExt);
+        //获取PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET属性，第一次存放时为null
         String queueOffsetFromPrepare = msgExt.getUserProperty(MessageConst.PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET);
+        // 如果不为null，则将此前记录的offset再次存入PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET属性
         if (null != queueOffsetFromPrepare) {
             MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET,
                 String.valueOf(queueOffsetFromPrepare));
         } else {
+            // 如果为null，则将当前half消息的offset存入PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET属性
             MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_TRANSACTION_PREPARED_QUEUE_OFFSET,
                 String.valueOf(msgExt.getQueueOffset()));
         }
@@ -307,34 +353,76 @@ public class TransactionalMessageBridge {
      * @param messageQueue Half message queue
      * @return This method will always return true.
      */
+    /**
+     * 在提交事务或 回滚时向OpMessageQueue写入Op消息，tags为“d”
+     * @param prepareMessage  half消息
+     * @param messageQueue    half消息队列
+     * @return  总会返回true
+     */
     private boolean addRemoveTagInTransactionOp(MessageExt prepareMessage, MessageQueue messageQueue) {
+        /**
+         * 构建一条Op消息：
+         * topic：RMQ_SYS_TRANS_OP_HALF_TOPIC
+         * tags：“d”
+         * body：对应的half消息在half consumeQueue的相对偏移量
+         */
         Message message = new Message(TransactionalMessageUtil.buildOpTopic(), TransactionalMessageUtil.REMOVETAG,
             String.valueOf(prepareMessage.getQueueOffset()).getBytes(TransactionalMessageUtil.charset));
+        // 将Op消息写入对应的Op messageQueue
         writeOp(message, messageQueue);
         return true;
     }
 
+    /**
+     * 写入Op消息
+     * @param message  Op消息
+     * @param mq        Op消息对应的half消息队列
+     */
     private void writeOp(Message message, MessageQueue mq) {
+        /**
+         * 从opQueueMap缓存中，获取half消息队列对应的Op消息队列，没有就创建
+         * 从这里可知，每一个half消息都有一个对应的Op消息，每一个half消息队列都有一个对应的Op消息队列，这样能快速进行查找
+         */
         MessageQueue opQueue;
         if (opQueueMap.containsKey(mq)) {
             opQueue = opQueueMap.get(mq);
         } else {
+            /**
+             *  如果未找到，则创建新的Op消息队列
+             *  topic：RMQ_SYS_TRANS_OP_HALF_TOPIC
+             *  brokerName和queueId和对应的half消息队列的属性一致
+             */
             opQueue = getOpQueueByHalf(mq);
+
             MessageQueue oldQueue = opQueueMap.putIfAbsent(mq, opQueue);
             if (oldQueue != null) {
                 opQueue = oldQueue;
             }
         }
+        /**
+         *  创建新的Op消息队列
+         *  topic：RMQ_SYS_TRANS_OP_HALF_TOPIC
+         *  brokerName和queueId和对应的half消息队列的属性一致
+         */
         if (opQueue == null) {
             opQueue = new MessageQueue(TransactionalMessageUtil.buildOpTopic(), mq.getBrokerName(), mq.getQueueId());
         }
+        // 将Op消息存入该Op消息队列中，内部调用的MessageStore#putMessage方法发送消息
         putMessage(makeOpMessageInner(message, opQueue));
     }
 
+    /**
+     * 基于half消息队列获取Op消息队列
+     * @param halfMQ  half消息队列
+     * @return  Op消息队列
+     */
     private MessageQueue getOpQueueByHalf(MessageQueue halfMQ) {
         MessageQueue opQueue = new MessageQueue();
+        // topic：RMQ_SYS_TRANS_OP_HALF_TOPIC
         opQueue.setTopic(TransactionalMessageUtil.buildOpTopic());
+        // brokerName：half消息队列的brokerName
         opQueue.setBrokerName(halfMQ.getBrokerName());
+        // queueId：half消息队列的queueId
         opQueue.setQueueId(halfMQ.getQueueId());
         return opQueue;
     }

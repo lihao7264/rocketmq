@@ -142,6 +142,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.store.config.BrokerRole;
 
+/**
+ * 处理LOCK_BATCH_MQ等消息
+ */
 public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements NettyRequestProcessor {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final BrokerController brokerController;
@@ -175,8 +178,10 @@ public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements 
             case RequestCode.GET_BROKER_RUNTIME_INFO:
                 return this.getBrokerRuntimeInfo(ctx, request);
             case RequestCode.LOCK_BATCH_MQ:
+                // 批量加锁
                 return this.lockBatchMQ(ctx, request);
             case RequestCode.UNLOCK_BATCH_MQ:
+                // 批量解锁
                 return this.unlockBatchMQ(ctx, request);
             case RequestCode.UPDATE_AND_CREATE_SUBSCRIPTIONGROUP:
                 return this.updateAndCreateSubscriptionGroup(ctx, request);
@@ -655,6 +660,12 @@ public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements 
         return response;
     }
 
+    /**
+     * 批量锁定消息队列的处理方法
+     * @param ctx
+     * @param request       请求
+     * @return
+     */
     private RemotingCommand lockBatchMQ(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);
@@ -674,6 +685,12 @@ public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements 
         return response;
     }
 
+    /**
+     * 批量解锁消息队列
+     * @param ctx
+     * @param request
+     * @return
+     */
     private RemotingCommand unlockBatchMQ(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);
@@ -1166,6 +1183,13 @@ public class AdminBrokerProcessor extends AsyncNettyRequestProcessor implements 
         return response;
     }
 
+    /**
+     * 获取系统级别的topic列表
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     private RemotingCommand getSystemTopicListFromBroker(ChannelHandlerContext ctx, RemotingCommand request)
         throws RemotingCommandException {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);

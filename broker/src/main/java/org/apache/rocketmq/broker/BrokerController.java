@@ -453,7 +453,7 @@ public class BrokerController {
      * @throws CloneNotSupportedException
      */
     public boolean initialize() throws CloneNotSupportedException {
-        /*
+        /**
          * 1.加载配置文件:
          *   尝试从json配置文件 或 bak备份文件中加载json字符串，再反序列化转换为自身内部的属性
          */
@@ -482,7 +482,9 @@ public class BrokerController {
                  * 如果启动enableDLegerCommitLog 表示启用 RocketMQ 的容灾机制——自动主从切换。
                  */
                 if (messageStoreConfig.isEnableDLegerCommitLog()) {
+                    // 创建DLedgerRoleChangeHandler
                     DLedgerRoleChangeHandler roleChangeHandler = new DLedgerRoleChangeHandler(this, (DefaultMessageStore) messageStore);
+                    // 获取CommitLog并转为DLedgerCommitLog类型 并 添加角色变更处理器DLedgerRoleChangeHandler
                     ((DLedgerCommitLog)((DefaultMessageStore) messageStore).getCommitLog()).getdLedgerServer().getdLedgerLeaderElector().addRoleChangeHandler(roleChangeHandler);
                 }
                 /**
@@ -492,7 +494,6 @@ public class BrokerController {
                  *   msgPutTotalTodayMorning：今天存储的消息数。
                  */
                 this.brokerStats = new BrokerStats((DefaultMessageStore) this.messageStore);
-                //load plugin
                 // 加载存在的消息存储插件
                 MessageStorePluginContext context = new MessageStorePluginContext(messageStoreConfig, brokerStatsManager, messageArrivingListener, brokerConfig);
                 this.messageStore = MessageStoreFactory.build(context, this.messageStore);

@@ -24,10 +24,17 @@ public class RequestCode {
 
     public static final int SEND_MESSAGE = 10;
 
+    /**
+     * 拉取消息请求
+     */
     public static final int PULL_MESSAGE = 11;
 
     public static final int QUERY_MESSAGE = 12;
     public static final int QUERY_BROKER_OFFSET = 13;
+    /**
+     * 查询消费者偏移量
+     * 从broker中获取指定topic的指定队列的指定消费者组的最新offset
+     */
     public static final int QUERY_CONSUMER_OFFSET = 14;
     public static final int UPDATE_CONSUMER_OFFSET = 15;
     public static final int UPDATE_AND_CREATE_TOPIC = 17;
@@ -55,6 +62,9 @@ public class RequestCode {
 
     public static final int UNREGISTER_CLIENT = 35;
 
+    /**
+     * 发送消费失败的消息到broker
+     */
     public static final int CONSUMER_SEND_MSG_BACK = 36;
 
     public static final int END_TRANSACTION = 37;
@@ -64,8 +74,14 @@ public class RequestCode {
 
     public static final int NOTIFY_CONSUMER_IDS_CHANGED = 40;
 
+    /**
+     * 批量锁定消息队列的请求code
+     */
     public static final int LOCK_BATCH_MQ = 41;
 
+    /**
+     * 批量解锁方法
+     */
     public static final int UNLOCK_BATCH_MQ = 42;
     public static final int GET_ALL_CONSUMER_OFFSET = 43;
 
@@ -186,8 +202,18 @@ public class RequestCode {
      */
     public static final int RESUME_CHECK_HALF_MESSAGE = 323;
 
+    /**
+     * 发送消息命令对象：
+     * 生产者发送消息给broker
+     * 顺序消费失败达到最大次数，则将消息放入死信队列
+     */
     public static final int SEND_REPLY_MESSAGE = 324;
 
+    /**
+     * 发送消息命令对象V2：
+     * 生产者发送消息给broker
+     * 顺序消费失败达到最大次数，则将消息放入死信队列
+     */
     public static final int SEND_REPLY_MESSAGE_V2 = 325;
 
     public static final int PUSH_REPLY_MESSAGE_TO_CLIENT = 326;

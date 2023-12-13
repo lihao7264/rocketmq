@@ -19,8 +19,19 @@ package org.apache.rocketmq.store;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 
+/**
+ * 存储工具类
+ */
 public class StoreUtil {
+    /**
+     * 保存着当前服务器上以字节为单位的物理内存总量
+     */
     public static final long TOTAL_PHYSICAL_MEMORY_SIZE = getTotalPhysicalMemorySize();
+
+    /**
+     * 获取当前服务器上以字节为单位的物理内存总量
+     * @return
+     */
 
     @SuppressWarnings("restriction")
     public static long getTotalPhysicalMemorySize() {

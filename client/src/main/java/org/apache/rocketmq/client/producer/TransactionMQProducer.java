@@ -22,13 +22,40 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.protocol.NamespaceUtil;
 import org.apache.rocketmq.remoting.RPCHook;
 
+/**
+ * 事务消息生产者
+ */
 public class TransactionMQProducer extends DefaultMQProducer {
+    /**
+     * 事务检查监听器
+     * 注意：一般都不使用该组件
+     */
     private TransactionCheckListener transactionCheckListener;
+    /**
+     * 事务回查线程池的核心线程数
+     * 默认值：1
+     */
     private int checkThreadPoolMinSize = 1;
+    /**
+     * 事务回查线程池的最大线程数
+     * 默认值：1
+     */
     private int checkThreadPoolMaxSize = 1;
+    /**
+     * 事务回查线程池的阻塞队列最大长度
+     * 默认值：2000
+     */
     private int checkRequestHoldMax = 2000;
 
+    /**
+     * 自定义的事务回查线程池
+     */
     private ExecutorService executorService;
+
+    /**
+     *  事务监听器（事务回查监听器）
+     *  注意：现在一般都使用该组件
+     */
 
     private TransactionListener transactionListener;
 
@@ -55,9 +82,15 @@ public class TransactionMQProducer extends DefaultMQProducer {
         super(namespace, producerGroup, rpcHook, enableMsgTrace, customizedTraceTopic);
     }
 
+    /**
+     * 启动事务消息生产者
+     * @throws MQClientException
+     */
     @Override
     public void start() throws MQClientException {
+        // 初始化事务环境
         this.defaultMQProducerImpl.initTransactionEnv();
+        // 父类DefaultMQProducer的start方法
         super.start();
     }
 
@@ -83,14 +116,22 @@ public class TransactionMQProducer extends DefaultMQProducer {
         return this.defaultMQProducerImpl.sendMessageInTransaction(msg, tranExecuter, arg);
     }
 
+    /**
+     * 发送事务消息
+     * @param msg 要发送的事务消息
+     * @param arg 参与本地事务使用的参数
+     * @return
+     */
     @Override
     public TransactionSendResult sendMessageInTransaction(final Message msg,
         final Object arg) throws MQClientException {
+        // 必须要有事务监听器
         if (null == this.transactionListener) {
             throw new MQClientException("TransactionListener is null", null);
         }
-
+        // 根据namespace和topic设置主题，一般未设置nameSpace
         msg.setTopic(NamespaceUtil.wrapNamespace(this.getNamespace(), msg.getTopic()));
+        // 调用DefaultMQProducerImpl#sendMessageInTransaction方法发送事务消息
         return this.defaultMQProducerImpl.sendMessageInTransaction(msg, null, arg);
     }
 

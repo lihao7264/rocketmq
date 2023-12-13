@@ -25,11 +25,24 @@ import java.util.Set;
 
 public class TopicValidator {
 
+    /**
+     * 自动创建topic的模版topic
+     */
     public static final String AUTO_CREATE_TOPIC_KEY_TOPIC = "TBW102"; // Will be created at broker when isAutoCreateTopicEnable
+    /**
+     * 延迟消息的topic
+     */
     public static final String RMQ_SYS_SCHEDULE_TOPIC = "SCHEDULE_TOPIC_XXXX";
     public static final String RMQ_SYS_BENCHMARK_TOPIC = "BenchmarkTest";
+    /**
+     * 半事务消息topic
+     * 单队列
+     */
     public static final String RMQ_SYS_TRANS_HALF_TOPIC = "RMQ_SYS_TRANS_HALF_TOPIC";
     public static final String RMQ_SYS_TRACE_TOPIC = "RMQ_SYS_TRACE_TOPIC";
+    /**
+     * 在半消息被commit或者rollback处理后，会存储到Topic为RMQ_SYS_TRANS_OP_HALF_TOPIC的队列中，标识半消息已被处理
+     */
     public static final String RMQ_SYS_TRANS_OP_HALF_TOPIC = "RMQ_SYS_TRANS_OP_HALF_TOPIC";
     public static final String RMQ_SYS_TRANS_CHECK_MAX_TIME_TOPIC = "TRANS_CHECK_MAX_TIME_TOPIC";
     public static final String RMQ_SYS_SELF_TEST_TOPIC = "SELF_TEST_TOPIC";
@@ -37,6 +50,9 @@ public class TopicValidator {
 
     public static final String SYSTEM_TOPIC_PREFIX = "rmq_sys_";
     public static final boolean[] VALID_CHAR_BIT_MAP = new boolean[128];
+    /**
+     * topic最大长度：127
+     */
     private static final int TOPIC_MAX_LENGTH = 127;
 
     private static final Set<String> SYSTEM_TOPIC_SET = new HashSet<String>();

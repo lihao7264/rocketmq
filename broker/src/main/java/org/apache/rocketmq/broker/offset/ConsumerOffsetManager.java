@@ -33,12 +33,19 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * 消费点位（ConsumeQueue中第几个存储单元）管理器
+ */
 public class ConsumerOffsetManager extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+    /**
+     * topic@queueId
+     */
     protected static final String TOPIC_GROUP_SEPARATOR = "@";
 
     /**
-     * <topic@group,<队列号,消费者消费偏移量>>
+     * <topic@group,<消息队列id,消费点位>>
+     *  消费点位：ConsumeQueue中第几个存储单元
      */
     protected ConcurrentMap<String/* topic@group */, ConcurrentMap<Integer, Long>> offsetTable =
             new ConcurrentHashMap<String, ConcurrentMap<Integer, Long>>(512);
@@ -121,6 +128,15 @@ public class ConsumerOffsetManager extends ConfigManager {
         return groups;
     }
 
+    /**
+     * 提交消费点位
+     *
+     * @param clientHost 客户端地址
+     * @param group      消费者组
+     * @param topic      消费topic
+     * @param queueId    队列id
+     * @param offset     提交的消费点位
+     */
     public void commitOffset(final String clientHost, final String group, final String topic, final int queueId,
                              final long offset) {
         // topic@group
@@ -128,13 +144,24 @@ public class ConsumerOffsetManager extends ConfigManager {
         this.commitOffset(clientHost, key, queueId, offset);
     }
 
+    /**
+     * 提交消费点位
+     *
+     * @param clientHost 客户端地址
+     * @param key        缓存key
+     * @param queueId    队列id
+     * @param offset     提交的消费点位
+     */
     private void commitOffset(final String clientHost, final String key, final int queueId, final long offset) {
+        // 获取topic@group对应的所有queue的消费点位map
         ConcurrentMap<Integer, Long> map = this.offsetTable.get(key);
         if (null == map) {
             map = new ConcurrentHashMap<Integer, Long>(32);
+            // 存入map，key为queueId value为offSet（消费点位）
             map.put(queueId, offset);
             this.offsetTable.put(key, map);
         } else {
+            // 存入map，key为queueId value为offSet（消费点位）
             Long storeOffset = map.put(queueId, offset);
             if (storeOffset != null && offset < storeOffset) {
                 log.warn("[NOTIFYME]update consumer offset less than store. clientHost={}, key={}, queueId={}, requestOffset={}, storeOffset={}", clientHost, key, queueId, offset, storeOffset);

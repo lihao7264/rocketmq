@@ -22,16 +22,29 @@ import java.util.Set;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * 机房平均分配策略。
+ * 消费者只消费绑定的机房中的broker，并对绑定机房中的MessageQueue进行负载均衡。
  * Computer room Hashing queue algorithm, such as Alipay logic room
  */
 public class AllocateMessageQueueByMachineRoom extends AbstractAllocateMessageQueueStrategy {
+    /**
+     * 指定消费的机房名集合
+     */
     private Set<String> consumeridcs;
-
+    /**
+     * 分配队列方法
+     * @param consumerGroup 当前consumerGroup
+     * @param currentCID 当前currentCID
+     * @param mqAll     当前topic的mq，已排序
+     * @param cidAll 当前consumerGroup的clientId集合，已排序
+     * @return
+     */
     @Override
     public List<MessageQueue> allocate(String consumerGroup, String currentCID, List<MessageQueue> mqAll,
         List<String> cidAll) {
 
         List<MessageQueue> result = new ArrayList<MessageQueue>();
+        //参数校验
         if (!check(consumerGroup, currentCID, mqAll, cidAll)) {
             return result;
         }
@@ -39,21 +52,26 @@ public class AllocateMessageQueueByMachineRoom extends AbstractAllocateMessageQu
         if (currentIndex < 0) {
             return result;
         }
+        // 索引（同机房）
         List<MessageQueue> premqAll = new ArrayList<MessageQueue>();
         for (MessageQueue mq : mqAll) {
             String[] temp = mq.getBrokerName().split("@");
+            // 如果brokerName符合“机房名@brokerName”的格式要求 且 当前消费者的consumeridcs包含该机房，则加入集合
             if (temp.length == 2 && consumeridcs.contains(temp[0])) {
                 premqAll.add(mq);
             }
         }
-
+        // 平均分配的队列
         int mod = premqAll.size() / cidAll.size();
+        // 取模剩余的队列
         int rem = premqAll.size() % cidAll.size();
+        // 分配队列
         int startIndex = mod * currentIndex;
         int endIndex = startIndex + mod;
         for (int i = startIndex; i < endIndex; i++) {
             result.add(premqAll.get(i));
         }
+        // 多加一个队列
         if (rem > currentIndex) {
             result.add(premqAll.get(currentIndex + mod * cidAll.size()));
         }

@@ -93,8 +93,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                     RemotingHelper.parseChannelRemoteAddr(ctx.channel()),
                     request);
         }
-
-
+        // 根据请求code码 执行不同的业务逻辑
         switch (request.getCode()) {
             case RequestCode.PUT_KV_CONFIG:
                 return this.putKVConfig(ctx, request);
@@ -112,6 +111,10 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                 Version brokerVersion = MQVersion.value2Version(request.getVersion());
                 // 如果大于3.0.11版本，则调用registerBrokerWithFilterServer，否则调用registerBroker
                 if (brokerVersion.ordinal() >= MQVersion.Version.V3_0_11.ordinal()) {
+                    /**
+                     *  参数一：ctx 上下文对象
+                     *  参数二：请求对象
+                     */
                     return this.registerBrokerWithFilterServer(ctx, request);
                 } else {
                     return this.registerBroker(ctx, request);
@@ -121,8 +124,18 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                  * 处理解除broker注册的逻辑
                  */
                 return this.unregisterBroker(ctx, request);
+            /**
+             * 根据topic获取路由信息
+             * 以生产者发送消息为例：当生产者本地缓存映射表中不存在指定的topic时，会向namesrv获取topic路由信息
+             *                    code码为GET_ROUTEINFO_BY_TOPIC
+             */
             case RequestCode.GET_ROUTEINFO_BY_TOPIC:
+                /**
+                 * 参数一：ctx 上下文对象
+                 * 参数二：请求信息
+                 */
                 return this.getRouteInfoByTopic(ctx, request);
+            // 获取broker集群信息
             case RequestCode.GET_BROKER_CLUSTER_INFO:
                 return this.getBrokerClusterInfo(ctx, request);
             case RequestCode.WIPE_WRITE_PERM_OF_BROKER:
@@ -233,14 +246,19 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
      */
     public RemotingCommand registerBrokerWithFilterServer(ChannelHandlerContext ctx, RemotingCommand request)
             throws RemotingCommandException {
-        // 创建返回数据
+        // 创建响应命令对象
+        // RemotingCommand.customHeader = 反射创建RegisterBrokerResponseHeader的对象
         final RemotingCommand response = RemotingCommand.createResponseCommand(RegisterBrokerResponseHeader.class);
-        // 构建响应头
+        // 构建自定义的响应头
         final RegisterBrokerResponseHeader responseHeader = (RegisterBrokerResponseHeader) response.readCustomHeader();
-        // 获取请求头
+        /**
+         * 获取请求头
+         * 从request中提取RegisterBrokerRequestHeader信息。此时正常情况下requestHeader中的属性是有值的
+         * 比如 brokerName、brokerAddr、clusterName、haServerAddr、brokerId
+         */
         final RegisterBrokerRequestHeader requestHeader =
                 (RegisterBrokerRequestHeader) request.decodeCommandCustomHeader(RegisterBrokerRequestHeader.class);
-        // 校验crc32
+        // 用于数据校验 crc32 循环冗余校验
         if (!checksum(ctx, request, requestHeader)) {
             response.setCode(ResponseCode.SYSTEM_ERROR);
             response.setRemark("crc32 not match");
@@ -254,7 +272,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
 
         if (request.getBody() != null) {
             try {
-                // 解析请求体的信息
+                // 解析请求体的信息（到registerBrokerBody中）
                 registerBrokerBody = RegisterBrokerBody.decode(request.getBody(), requestHeader.isCompressed());
             } catch (Exception e) {
                 throw new RemotingCommandException("Failed to decode RegisterBrokerBody", e);
@@ -264,7 +282,14 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
             registerBrokerBody.getTopicConfigSerializeWrapper().getDataVersion().setTimestamp(0);
         }
         /**
-         * broker信息注册
+         * 通过 routeInfoManager 注册 broker信息
+         * 参数一：集群名称
+         * 参数二：broker地址
+         * 参数三：broker名称
+         * 参数四：brokerID
+         * 参数五：ha服务地址
+         * 参数六：TopicConfigSerializeWrapper 存放topic相关信息
+         * 参数七：类模式消息过滤相关
          */
         RegisterBrokerResult result = this.namesrvController.getRouteInfoManager().registerBroker(
                 requestHeader.getClusterName(),
@@ -276,6 +301,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                 registerBrokerBody.getFilterServerList(),
                 ctx.channel());
         /**
+         * 设置结果对象
          * 从configTable获取顺序消息的配置，configTable可用于存储一些配置信息，实现匹配的namespace隔离。
          * 目前版本似乎不太起作用，或许是当初设想但未利用起来的设计，返回null
          */
@@ -285,6 +311,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
         byte[] jsonValue = this.namesrvController.getKvConfigManager().getKVListByNamespace(NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFIG);
         response.setBody(jsonValue);
 
+        // 返回响应
         response.setCode(ResponseCode.SUCCESS);
         response.setRemark(null);
         return response;

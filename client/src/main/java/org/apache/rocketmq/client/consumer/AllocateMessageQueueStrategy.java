@@ -20,11 +20,14 @@ import java.util.List;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * RocketMQ消费者之间消息队列分配的策略算法接口
  * Strategy Algorithm for message allocating between consumers
  */
 public interface AllocateMessageQueueStrategy {
 
     /**
+     * 为当前clientId（即当前消费者）分配消息队列
+     *  即执行负载均衡（即重平衡）算法
      * Allocating by consumer id
      *
      * @param consumerGroup current consumer group
@@ -41,6 +44,7 @@ public interface AllocateMessageQueueStrategy {
     );
 
     /**
+     * 算法名
      * Algorithm name
      *
      * @return The strategy name

@@ -17,10 +17,29 @@
 package org.apache.rocketmq.common.sysflag;
 
 public class PullSysFlag {
+    /**
+     * commitOffset
+     * 第0位
+     */
     private final static int FLAG_COMMIT_OFFSET = 0x1;
+    /**
+     * suspend
+     * 第1位
+     */
     private final static int FLAG_SUSPEND = 0x1 << 1;
+    /**
+     * subExpression
+     * 第2位
+     */
     private final static int FLAG_SUBSCRIPTION = 0x1 << 2;
+    /**
+     *  class filter
+     *  第3位
+     */
     private final static int FLAG_CLASS_FILTER = 0x1 << 3;
+    /**
+     * 第4位
+     */
     private final static int FLAG_LITE_PULL_MESSAGE = 0x1 << 4;
 
     public static int buildSysFlag(final boolean commitOffset, final boolean suspend,

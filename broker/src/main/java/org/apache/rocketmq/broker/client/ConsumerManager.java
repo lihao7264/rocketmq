@@ -33,11 +33,25 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 
+/**
+ * 消费者管理器
+ */
 public class ConsumerManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+    /**
+     * 连接超时时间
+     * 默认值：2min
+     */
     private static final long CHANNEL_EXPIRED_TIMEOUT = 1000 * 120;
+
+    /**
+     * <消费者分组,分组信息>
+     */
     private final ConcurrentMap<String/* Group */, ConsumerGroupInfo> consumerTable =
         new ConcurrentHashMap<String, ConsumerGroupInfo>(1024);
+    /**
+     * 消费者改变监听器
+     */
     private final ConsumerIdsChangeListener consumerIdsChangeListener;
 
     public ConsumerManager(final ConsumerIdsChangeListener consumerIdsChangeListener) {
@@ -94,31 +108,51 @@ public class ConsumerManager {
             }
         }
     }
-
+    /**
+     * 注册consumer，返回consumer信息是否已发生改变
+     * 如果发生了改变，Broker会发送NOTIFY_CONSUMER_IDS_CHANGED请求给同组的所有consumer客户端，要求进行重平衡操作
+     *
+     * @param group                            消费者组
+     * @param clientChannelInfo                客户端连接信息
+     * @param consumeType                      消费类型：PULL or PUSH
+     * @param messageModel                     消息模式：集群 or 广播
+     * @param consumeFromWhere                 启动消费位置
+     * @param subList                          订阅信息数据
+     * @param isNotifyConsumerIdsChangedEnable 一个consumer改变时是否通知该consumergroup中的所有consumer进行重平衡
+     * @return 是否重平衡
+     */
     public boolean registerConsumer(final String group, final ClientChannelInfo clientChannelInfo,
         ConsumeType consumeType, MessageModel messageModel, ConsumeFromWhere consumeFromWhere,
         final Set<SubscriptionData> subList, boolean isNotifyConsumerIdsChangedEnable) {
-
+        // 获取当前group对应的ConsumerGroupInfo
         ConsumerGroupInfo consumerGroupInfo = this.consumerTable.get(group);
+        // 如果为null，则新建一个ConsumerGroupInfo并存入consumerTable
         if (null == consumerGroupInfo) {
             ConsumerGroupInfo tmp = new ConsumerGroupInfo(group, consumeType, messageModel, consumeFromWhere);
             ConsumerGroupInfo prev = this.consumerTable.putIfAbsent(group, tmp);
             consumerGroupInfo = prev != null ? prev : tmp;
         }
-
+        /**
+         * 1.更新连接
+         */
         boolean r1 =
             consumerGroupInfo.updateChannel(clientChannelInfo, consumeType, messageModel,
                 consumeFromWhere);
+        /**
+         * 2.更新订阅信息
+         */
         boolean r2 = consumerGroupInfo.updateSubscription(subList);
-
+        /**
+         * 3.如果连接或者订阅信息有更新 且 允许通知，则通知该consumergroup中的所有consumer进行重平衡
+         */
         if (r1 || r2) {
             if (isNotifyConsumerIdsChangedEnable) {
+                // CHANGE事件
                 this.consumerIdsChangeListener.handle(ConsumerGroupEvent.CHANGE, group, consumerGroupInfo.getAllChannel());
             }
         }
-
+        // 注册订阅信息到ConsumerFilterManager
         this.consumerIdsChangeListener.handle(ConsumerGroupEvent.REGISTER, group, subList);
-
         return r1 || r2;
     }
 

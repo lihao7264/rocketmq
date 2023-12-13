@@ -29,6 +29,7 @@ public abstract class AbstractAllocateMessageQueueStrategy implements AllocateMe
 
     private final InternalLogger log = ClientLogger.getLog();
 
+    // 参数校验
     public boolean check(String consumerGroup, String currentCID, List<MessageQueue> mqAll,
         List<String> cidAll) {
         if (StringUtils.isEmpty(currentCID)) {

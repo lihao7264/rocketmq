@@ -27,11 +27,27 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 负载均衡消息队列锁定管理器
+ */
 public class RebalanceLockManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.REBALANCE_LOCK_LOGGER_NAME);
+
+    /**
+     * 如果已被当前客户端锁定 且 未过期
+     * 每次锁定过期时间为REBALANCE_LOCK_MAX_LIVE_TIME
+     * 默认值：60s
+     * 可通过-Drocketmq.broker.rebalance.lockMaxLiveTime的broker参数设置
+     */
     private final static long REBALANCE_LOCK_MAX_LIVE_TIME = Long.parseLong(System.getProperty(
         "rocketmq.broker.rebalance.lockMaxLiveTime", "60000"));
+    /**
+     * 锁定消息队列时的本地锁
+     */
     private final Lock lock = new ReentrantLock();
+    /**
+     * <消费分组,<消息队列,锁情况>>
+     */
     private final ConcurrentMap<String/* group */, ConcurrentHashMap<MessageQueue, LockEntry>> mqLockTable =
         new ConcurrentHashMap<String, ConcurrentHashMap<MessageQueue, LockEntry>>(1024);
 
@@ -114,11 +130,18 @@ public class RebalanceLockManager {
         return false;
     }
 
+    /**
+     * 尝试批量锁定，返回锁定的mq
+     * @param group    消费者组
+     * @param mqs      需锁定的mq集合
+     * @param clientId 客户端id
+     * @return   已锁定的mq集合
+     */
     public Set<MessageQueue> tryLockBatch(final String group, final Set<MessageQueue> mqs,
         final String clientId) {
         Set<MessageQueue> lockedMqs = new HashSet<MessageQueue>(mqs.size());
         Set<MessageQueue> notLockedMqs = new HashSet<MessageQueue>(mqs.size());
-
+        // 将已锁定和未锁定的mq分别存储到不同集合
         for (MessageQueue mq : mqs) {
             if (this.isLocked(group, mq, clientId)) {
                 lockedMqs.add(mq);
@@ -126,20 +149,28 @@ public class RebalanceLockManager {
                 notLockedMqs.add(mq);
             }
         }
-
+        // 存在未锁定的集合，则尝试加锁
         if (!notLockedMqs.isEmpty()) {
             try {
+                // 获取本地锁（一个ReentrantLock），所有group的分配都获得同一个锁
                 this.lock.lockInterruptibly();
                 try {
+                    // 获取该消费者组对于消息队列的加锁情况map，存放着消息队列到其获取了锁的消费者客户端id的映射关系
                     ConcurrentHashMap<MessageQueue, LockEntry> groupValue = this.mqLockTable.get(group);
                     if (null == groupValue) {
+                        // 初始化一个
                         groupValue = new ConcurrentHashMap<>(32);
                         this.mqLockTable.put(group, groupValue);
                     }
-
+                    // 遍历未锁定的集合
                     for (MessageQueue mq : notLockedMqs) {
                         LockEntry lockEntry = groupValue.get(mq);
+                        // 如果该mq未锁定
                         if (null == lockEntry) {
+                            /**
+                             * 新建一个LockEntry，设置为当前clientId，表示已被当前请求的客户端锁定
+                             * 内部设置锁定时间戳lastUpdateTimestamp：当前毫秒时间戳
+                             */
                             lockEntry = new LockEntry();
                             lockEntry.setClientId(clientId);
                             groupValue.put(mq, lockEntry);
@@ -150,15 +181,28 @@ public class RebalanceLockManager {
                                 mq);
                         }
 
+                        /**
+                         * 如果已被当前客户端锁定 且 未过期
+                         * 每次锁定过期时间为REBALANCE_LOCK_MAX_LIVE_TIME
+                         * 默认值：60s
+                         * 可通过-Drocketmq.broker.rebalance.lockMaxLiveTime的broker参数设置
+                         */
                         if (lockEntry.isLocked(clientId)) {
+                            // 重新设置锁定时间为当前时间戳
                             lockEntry.setLastUpdateTimestamp(System.currentTimeMillis());
+                            // 加入到已锁定的mq中
                             lockedMqs.add(mq);
+                            // 下一次循环
                             continue;
                         }
-
+                        /**
+                         * 获取客户端id
+                         * 此时表示不是当前clientId获得的锁 或 锁已过期
+                         */
                         String oldClientId = lockEntry.getClientId();
-
+                        // 如果锁已过期
                         if (lockEntry.isExpired()) {
+                            // 设置当前clientId获得了锁
                             lockEntry.setClientId(clientId);
                             lockEntry.setLastUpdateTimestamp(System.currentTimeMillis());
                             log.warn(
@@ -167,10 +211,12 @@ public class RebalanceLockManager {
                                 oldClientId,
                                 clientId,
                                 mq);
+                            // 加入到已锁定的mq中
                             lockedMqs.add(mq);
+                            // 下一次循环
                             continue;
                         }
-
+                        // 到此表示mq被其它客户端锁定
                         log.warn(
                             "tryLockBatch, message queue locked by other client. Group: {} OtherClientId: {} NewClientId: {} {}",
                             group,
@@ -179,25 +225,35 @@ public class RebalanceLockManager {
                             mq);
                     }
                 } finally {
+                    // 本地锁解锁
                     this.lock.unlock();
                 }
             } catch (InterruptedException e) {
                 log.error("putMessage exception", e);
             }
         }
-
+        // 返回已锁定mq集合
         return lockedMqs;
     }
 
+    /**
+     * 批量解锁方法
+     * @param group
+     * @param mqs
+     * @param clientId
+     */
     public void unlockBatch(final String group, final Set<MessageQueue> mqs, final String clientId) {
         try {
+            // 获取 锁定消息队列时的本地锁
             this.lock.lockInterruptibly();
             try {
+                // 获取消费分组的消息队列的锁情况 并 遍历移除
                 ConcurrentHashMap<MessageQueue, LockEntry> groupValue = this.mqLockTable.get(group);
                 if (null != groupValue) {
                     for (MessageQueue mq : mqs) {
                         LockEntry lockEntry = groupValue.get(mq);
                         if (null != lockEntry) {
+                            // 锁和解锁是同一个消费者，则解锁成功
                             if (lockEntry.getClientId().equals(clientId)) {
                                 groupValue.remove(mq);
                                 log.info("unlockBatch, Group: {} {} {}",
@@ -231,8 +287,17 @@ public class RebalanceLockManager {
         }
     }
 
+    /**
+     * 锁信息
+     */
     static class LockEntry {
+        /**
+         * 客户端id
+         */
         private String clientId;
+        /**
+         * 最新更新时间
+         */
         private volatile long lastUpdateTimestamp = System.currentTimeMillis();
 
         public String getClientId() {
@@ -251,11 +316,21 @@ public class RebalanceLockManager {
             this.lastUpdateTimestamp = lastUpdateTimestamp;
         }
 
+        /**
+         * 被当前客户端锁定 且 未过期
+         * @param clientId
+         * @return
+         */
         public boolean isLocked(final String clientId) {
             boolean eq = this.clientId.equals(clientId);
             return eq && !this.isExpired();
         }
 
+        /**
+         * 已过期
+         * 默认过期时间：60s
+         * @return
+         */
         public boolean isExpired() {
             boolean expired =
                 (System.currentTimeMillis() - this.lastUpdateTimestamp) > REBALANCE_LOCK_MAX_LIVE_TIME;

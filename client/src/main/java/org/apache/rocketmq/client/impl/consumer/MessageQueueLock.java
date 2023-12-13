@@ -21,9 +21,13 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * 消息队列锁
  * Message lock,strictly ensure the single queue only one thread at a time consuming
  */
 public class MessageQueueLock {
+    /**
+     * <消息队列,消息队列的对应锁对象>
+     */
     private ConcurrentMap<MessageQueue, Object> mqLockTable =
         new ConcurrentHashMap<MessageQueue, Object>();
 

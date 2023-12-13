@@ -23,6 +23,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public class TransactionalMessageUtil {
+    /**
+     * d
+     * 消息删除标记
+     */
     public static final String REMOVETAG = "d";
     public static Charset charset = StandardCharsets.UTF_8;
 

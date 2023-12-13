@@ -32,47 +32,95 @@ import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.remoting.protocol.RequestType;
 
 /**
+ * 客户端通用配置
  * Client Common configuration
  */
 public class ClientConfig {
     public static final String SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY = "com.rocketmq.sendMessageWithVIPChannel";
+    /**
+     * NameServer的地址列表
+     * 从-D系统参数（rocketmq.namesrv.addr）或环境变量（NAMESRV_ADDR）
+     */
     private String namesrvAddr = NameServerAddressUtils.getNameServerAddresses();
+    /**
+     * 客户端IP
+     */
     private String clientIP = RemotingUtil.getLocalAddress();
+    /**
+     * 客户端实例名称
+     * 从-D系统参数（rocketmq.client.name）获取，否则是DEFAULT
+     */
     private String instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
+    /**
+     * 客户端通信层接收到网络请求时，处理器的核数
+     */
     private int clientCallbackExecutorThreads = Runtime.getRuntime().availableProcessors();
-    // 命名空间
+
+    /**
+     * 客户端命名空间
+     * NameSpace地址
+     */
     protected String namespace;
     private boolean namespaceInitialized = false;
+    /**
+     * 设置访问通道
+     * LOCAL、CLOUD
+     */
     protected AccessChannel accessChannel = AccessChannel.LOCAL;
 
     /**
+     * 轮询从NameServer获取路由信息的时间间隔
+     * 默认值：30s
      * Pulling topic information interval from the named server
      */
     private int pollNameServerInterval = 1000 * 30;
     /**
+     * 定期发送注册心跳到broker的间隔
+     * 默认值：30s
      * Heartbeat interval in microseconds with message broker
      */
     private int heartbeatBrokerInterval = 1000 * 30;
     /**
+     * 作用于Consumer，持久化消费进度的间隔
+     * 默认值：5s
      * Offset persistent interval for consumer
      */
     private int persistConsumerOffsetInterval = 1000 * 5;
+    /**
+     * consumer 状态错误时，采用定时任务定时执行拉取请求的时间间隔（拉取消息出现异常的延迟时间设置）
+     * 默认值：1s
+     */
     private long pullTimeDelayMillsWhenException = 1000;
+    /**
+     * 单位模式
+     */
     private boolean unitMode = false;
+    /**
+     * 单位名称
+     */
     private String unitName;
     /**
-     * 是否开启vip通道
+     * 是否启用vip Netty通道以发送消息
      * 默认false
+     * 从-D com.rocketmq.sendMessageWithVIPChannel参数的值，若无则是true
      */
     private boolean vipChannelEnabled = Boolean.parseBoolean(System.getProperty(SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY, "false"));
 
+    /**
+     * 是否使用安全传输
+     * 从-D系统参数tls.enable获取，否则是false
+     */
     private boolean useTLS = TlsSystemConfig.tlsEnable;
 
     /**
-     * mq客户端请求超时时间：3s
+     * mq客户端api超时设置（请求超时时间）
+     * 默认值：3s
      */
     private int mqClientApiTimeout = 3 * 1000;
 
+    /**
+     * 客户端实现语言
+     */
     private LanguageCode language = LanguageCode.JAVA;
 
     /**

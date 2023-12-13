@@ -24,12 +24,21 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 /**
+ * 一致性hash算法（一致性hash环）
+ *
  * To hash Node objects to a hash ring with a certain amount of virtual node.
  * Method routeNode will return a Node instance which the object key should be allocated to according to consistent hash
  * algorithm
  */
 public class ConsistentHashRouter<T extends Node> {
+    /**
+     * 一致性hash环
+     * <虚拟节点的hash值,虚拟节点>
+     */
     private final SortedMap<Long, VirtualNode<T>> ring = new TreeMap<Long, VirtualNode<T>>();
+    /**
+     * hash函数
+     */
     private final HashFunction hashFunction;
 
     public ConsistentHashRouter(Collection<T> pNodes, int vNodeCount) {
@@ -48,21 +57,24 @@ public class ConsistentHashRouter<T extends Node> {
         this.hashFunction = hashFunction;
         if (pNodes != null) {
             for (T pNode : pNodes) {
+                // 注册物理节点 及 对应的虚拟节点
                 addNode(pNode, vNodeCount);
             }
         }
     }
 
     /**
-     * add physic node to the hash ring with some virtual nodes
+     * 注册物理节点 及 对应的虚拟节点
+     *  将 pNode 加入 一致性hash环中（即给对应的物理节点创建对应数量的虚拟节点）
      *
-     * @param pNode physical node needs added to hash ring
-     * @param vNodeCount the number of virtual node of the physical node. Value should be greater than or equals to 0
+     * @param pNode 物理节点
+     * @param vNodeCount 虚拟节点数
      */
     public void addNode(T pNode, int vNodeCount) {
         if (vNodeCount < 0)
             throw new IllegalArgumentException("illegal virtual node counts :" + vNodeCount);
         int existingReplicas = getExistingReplicas(pNode);
+        // 创建虚拟节点
         for (int i = 0; i < vNodeCount; i++) {
             VirtualNode<T> vNode = new VirtualNode<T>(pNode, i + existingReplicas);
             ring.put(hashFunction.hash(vNode.getKey()), vNode);
@@ -70,7 +82,7 @@ public class ConsistentHashRouter<T extends Node> {
     }
 
     /**
-     * remove the physical node from the hash ring
+     * 从 一致性hash环 中删除某个物理节点的所有虚拟节点
      */
     public void removeNode(T pNode) {
         Iterator<Long> it = ring.keySet().iterator();
@@ -84,20 +96,27 @@ public class ConsistentHashRouter<T extends Node> {
     }
 
     /**
-     * with a specified key, route the nearest Node instance in the current hash ring
+     * 找到对象 Key 对应的物理节点
      *
-     * @param objectKey the object key to find a nearest Node
+     * @param objectKey 对象的 key
+     * @return 对应的物理节点
      */
     public T routeNode(String objectKey) {
         if (ring.isEmpty()) {
             return null;
         }
+        // 计算hash值
         Long hashVal = hashFunction.hash(objectKey);
         SortedMap<Long, VirtualNode<T>> tailMap = ring.tailMap(hashVal);
         Long nodeHashVal = !tailMap.isEmpty() ? tailMap.firstKey() : ring.firstKey();
         return ring.get(nodeHashVal).getPhysicalNode();
     }
 
+    /**
+     * 找到某个物理节点的虚拟节点数
+     * @param pNode 物理机节点
+     * @return 虚拟节点数
+     */
     public int getExistingReplicas(T pNode) {
         int replicas = 0;
         for (VirtualNode<T> vNode : ring.values()) {

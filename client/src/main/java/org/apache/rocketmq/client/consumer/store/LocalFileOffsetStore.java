@@ -37,16 +37,31 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
- * Local storage implementation
+ * 广播模式使用LocalFileOffsetStore实现类
+ * 消费点位存储在本地磁盘中
  */
 public class LocalFileOffsetStore implements OffsetStore {
+    /**
+     * 本地消费点位存储文件目录：${user.home}/.rocketmq_offsets
+     */
     public final static String LOCAL_OFFSET_STORE_DIR = System.getProperty(
         "rocketmq.client.localOffsetStoreDir",
         System.getProperty("user.home") + File.separator + ".rocketmq_offsets");
+
     private final static InternalLogger log = ClientLogger.getLog();
     private final MQClientInstance mQClientFactory;
+    /**
+     * 消费分组名
+     */
     private final String groupName;
+    /**
+     * 存储路径
+     * ${user.home}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json
+     */
     private final String storePath;
+    /**
+     * <消息队列,消费点位>
+     */
     private ConcurrentMap<MessageQueue, AtomicLong> offsetTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>();
 
@@ -59,8 +74,17 @@ public class LocalFileOffsetStore implements OffsetStore {
             "offsets.json";
     }
 
+    /**
+     * 广播消费模式下，从本地文件恢复消费点位配置
+     * @throws MQClientException
+     */
     @Override
     public void load() throws MQClientException {
+        /**
+         * 加载本地offset文件
+         * 地址：${ROCKETMQ_HOME}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json
+         * 配置在文件中以json形式存在
+         */
         OffsetSerializeWrapper offsetSerializeWrapper = this.readLocalOffset();
         if (offsetSerializeWrapper != null && offsetSerializeWrapper.getOffsetTable() != null) {
             offsetTable.putAll(offsetSerializeWrapper.getOffsetTable());
@@ -75,6 +99,12 @@ public class LocalFileOffsetStore implements OffsetStore {
         }
     }
 
+    /**
+     * 与RemoteBrokerOffsetStore#updateOffset方法一致
+     * @param mq
+     * @param offset
+     * @param increaseOnly
+     */
     @Override
     public void updateOffset(MessageQueue mq, long offset, boolean increaseOnly) {
         if (mq != null) {
@@ -93,29 +123,53 @@ public class LocalFileOffsetStore implements OffsetStore {
         }
     }
 
+    /**
+     * 获取offset
+     * @param mq    需获取offset的mq
+     * @param type  读取类型
+     * @return
+     */
     @Override
     public long readOffset(final MessageQueue mq, final ReadOffsetType type) {
         if (mq != null) {
             switch (type) {
+                /**
+                 * 先从本地内存offsetTable读取，读不到再从broker中读取
+                 */
                 case MEMORY_FIRST_THEN_STORE:
+                    /**
+                     * 仅从本地内存offsetTable读取
+                     */
                 case READ_FROM_MEMORY: {
                     AtomicLong offset = this.offsetTable.get(mq);
                     if (offset != null) {
+                        // 如果本地内存有关于此mq的offset，则直接返回
                         return offset.get();
                     } else if (ReadOffsetType.READ_FROM_MEMORY == type) {
+                        // 如果本地内存没有关于此mq的offset，但读取类型为READ_FROM_MEMORY，则直接返回-1
                         return -1;
                     }
                 }
+                /**
+                 * 仅从本地文件中读取
+                 */
                 case READ_FROM_STORE: {
                     OffsetSerializeWrapper offsetSerializeWrapper;
                     try {
+                        /**
+                         * 加载本地offset文件
+                         * 地址：${ROCKETMQ_HOME}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json
+                         * 配置在文件中以json形式存在
+                         */
                         offsetSerializeWrapper = this.readLocalOffset();
                     } catch (MQClientException e) {
                         return -1;
                     }
+                    // 获取对应mq的消费点位
                     if (offsetSerializeWrapper != null && offsetSerializeWrapper.getOffsetTable() != null) {
                         AtomicLong offset = offsetSerializeWrapper.getOffsetTable().get(mq);
                         if (offset != null) {
+                            // 更新此mq的offset 并 存入本地offsetTable缓存
                             this.updateOffset(mq, offset.get(), false);
                             return offset.get();
                         }
@@ -129,6 +183,13 @@ public class LocalFileOffsetStore implements OffsetStore {
         return -1;
     }
 
+    /**
+     * 持久化所有消息队列的offset到本地文件
+     * ${user.home}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json.tmp
+     * ${user.home}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json.bak
+     * ${user.home}/.rocketmq_offsets/{clientId}/{groupName}/offsets.json
+     * @param mqs
+     */
     @Override
     public void persistAll(Set<MessageQueue> mqs) {
         if (null == mqs || mqs.isEmpty())

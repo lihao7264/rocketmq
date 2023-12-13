@@ -27,14 +27,25 @@ import java.util.Map;
  */
 public class Message implements Serializable {
     private static final long serialVersionUID = 8445773977080406428L;
-    // topic
+    /**
+     * topic
+     */
     private String topic;
+    /**
+     * flag
+     */
     private int flag;
-    // 扩展信息
+    /**
+     * 扩展信息
+     */
     private Map<String, String> properties;
-    // 消息体
+    /**
+     * 消息体
+     */
     private byte[] body;
-    // 使用事务消息时的相关字段
+    /**
+     * 使用事务消息时的相关字段
+     */
     private String transactionId;
 
     public Message() {
@@ -165,6 +176,10 @@ public class Message implements Serializable {
         return Boolean.parseBoolean(result);
     }
 
+    /**
+     * 是否需等待存储完成后才返回
+     * @param waitStoreMsgOK
+     */
     public void setWaitStoreMsgOK(boolean waitStoreMsgOK) {
         this.putProperty(MessageConst.PROPERTY_WAIT_STORE_MSG_OK, Boolean.toString(waitStoreMsgOK));
     }

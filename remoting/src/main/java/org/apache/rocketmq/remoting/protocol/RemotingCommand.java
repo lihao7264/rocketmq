@@ -157,23 +157,37 @@ public class RemotingCommand {
     }
 
     public static RemotingCommand decode(final ByteBuf byteBuffer) throws RemotingCommandException {
+        // 获取数据帧的前4个字节表示 header长度+序列化类型
         int length = byteBuffer.readableBytes();
         int oriHeaderLen = byteBuffer.readInt();
+        // 后三字节：length & 0xFFFFFF 获取 header长度
         int headerLength = getHeaderLength(oriHeaderLen);
+        // length=headerLength+4+bodyLength
         if (headerLength > length - 4) {
             throw new RemotingCommandException("decode error, bad header length: " + headerLength);
         }
-
+        /**
+         * getProtocolType(oriHeaderLen)：获取到对应的SerializeType 序列化类型 JSON、ROCKETMQ
+         * 默认值：JSON
+         * headerDecode：解码
+         */
         RemotingCommand cmd = headerDecode(byteBuffer, headerLength, getProtocolType(oriHeaderLen));
 
+        /**
+         * length：byteBuffer的容量
+         * 4：header长度+序列化类型，表示后续需读取多少个字节表示完整的header数据长度
+         * headerLength：header真正有效数据的长度
+         * bodyLength：数据体的长度
+         */
         int bodyLength = length - 4 - headerLength;
         byte[] bodyData = null;
         if (bodyLength > 0) {
             bodyData = new byte[bodyLength];
             byteBuffer.readBytes(bodyData);
         }
+        // 将解析的body数据赋值到cmd对象中
         cmd.body = bodyData;
-
+        // 返回cmd对象
         return cmd;
     }
 
@@ -186,11 +200,15 @@ public class RemotingCommand {
             case JSON:
                 byte[] headerData = new byte[len];
                 byteBuffer.readBytes(headerData);
+                // 将JSON转换为RemotingCommand对象
                 RemotingCommand resultJson = RemotingSerializable.decode(headerData, RemotingCommand.class);
+                // 设置序列化类型
                 resultJson.setSerializeTypeCurrentRPC(type);
                 return resultJson;
             case ROCKETMQ:
+                // 根据header数据构建RemotingCommand对象
                 RemotingCommand resultRMQ = RocketMQSerializable.rocketMQProtocolDecode(byteBuffer, len);
+                // 设置序列化类型
                 resultRMQ.setSerializeTypeCurrentRPC(type);
                 return resultRMQ;
             default:
@@ -247,10 +265,14 @@ public class RemotingCommand {
         return decodeCommandCustomHeader(classHeader, true);
     }
 
+    /**
+     * 从 extFiles 属性中提取所需信息
+     */
     public CommandCustomHeader decodeCommandCustomHeader(Class<? extends CommandCustomHeader> classHeader,
             boolean useFastEncode) throws RemotingCommandException {
         CommandCustomHeader objectHeader;
         try {
+            // 反射创建classHeader对象
             objectHeader = classHeader.getDeclaredConstructor().newInstance();
         } catch (InstantiationException e) {
             return null;
@@ -262,33 +284,45 @@ public class RemotingCommand {
             return null;
         }
 
+        // 注册broker所需的相关信息 都被放入了此 扩展属性map中
         if (this.extFields != null) {
             if (objectHeader instanceof FastCodesHeader && useFastEncode) {
                 ((FastCodesHeader) objectHeader).decode(this.extFields);
                 objectHeader.checkFields();
                 return objectHeader;
             }
-
+            // 获取classHeader的所有属性
             Field[] fields = getClazzFields(classHeader);
             for (Field field : fields) {
+                // 条件成立：说明属性不是静态修饰的
                 if (!Modifier.isStatic(field.getModifiers())) {
+                    // 获取属性名
                     String fieldName = field.getName();
+                    // 条件成立：属性名称不是以this开头
                     if (!fieldName.startsWith("this")) {
                         try {
+                            // 获取对应的value值
                             String value = this.extFields.get(fieldName);
                             if (null == value) {
+                                /**
+                                 * 条件成立：说明 field字段上标注了CFNotNull注解，不能为空，
+                                 *         但extFields未获取到相关的值 抛出异常
+                                 */
                                 if (!isFieldNullable(field)) {
                                     throw new RemotingCommandException("the custom field <" + fieldName + "> is null");
                                 }
                                 continue;
                             }
-
+                            // 设置可访问的
                             field.setAccessible(true);
+                            // 获取字段类型
                             String type = getCanonicalName(field.getType());
+                            // 用于保存value的值
                             Object valueParsed;
-
+                            // 条件成立：说明是String类型
                             if (type.equals(STRING_CANONICAL_NAME)) {
                                 valueParsed = value;
+                            //  条件成立：说明是Integer 或 int类型
                             } else if (type.equals(INTEGER_CANONICAL_NAME_1) || type.equals(INTEGER_CANONICAL_NAME_2)) {
                                 valueParsed = Integer.parseInt(value);
                             } else if (type.equals(LONG_CANONICAL_NAME_1) || type.equals(LONG_CANONICAL_NAME_2)) {
@@ -300,7 +334,7 @@ public class RemotingCommand {
                             } else {
                                 throw new RemotingCommandException("the custom field <" + fieldName + "> type is not supported");
                             }
-
+                           // 设置属性值
                             field.set(objectHeader, valueParsed);
 
                         } catch (Throwable e) {
@@ -386,6 +420,7 @@ public class RemotingCommand {
 
     private byte[] headerEncode() {
         this.makeCustomHeaderToNet();
+        // 根据序列化类型来进行序列化。默认JSON
         if (SerializeType.ROCKETMQ == serializeTypeCurrentRPC) {
             return RocketMQSerializable.rocketMQProtocolEncode(this);
         } else {
@@ -394,6 +429,7 @@ public class RemotingCommand {
     }
 
     public void makeCustomHeaderToNet() {
+        // customHeader转存到extFields中
         if (this.customHeader != null) {
             Field[] fields = getClazzFields(customHeader.getClass());
             if (null == this.extFields) {
@@ -422,11 +458,12 @@ public class RemotingCommand {
     }
 
     public void fastEncodeHeader(ByteBuf out) {
+        // body长度
         int bodySize = this.body != null ? this.body.length : 0;
         int beginIndex = out.writerIndex();
-        // skip 8 bytes
         out.writeLong(0);
         int headerSize;
+        // 根据序列化协议进行序列化
         if (SerializeType.ROCKETMQ == serializeTypeCurrentRPC) {
             if (customHeader != null && !(customHeader instanceof FastCodesHeader)) {
                 this.makeCustomHeaderToNet();
@@ -438,7 +475,9 @@ public class RemotingCommand {
             headerSize = header.length;
             out.writeBytes(header);
         }
+        // 设置 帧长度（frameLength）=4+头长度+body长度
         out.setInt(beginIndex, 4 + headerSize + bodySize);
+        // 设置 int（高8位：序列化类型、低8位：头长度）
         out.setInt(beginIndex + 4, markProtocolType(headerSize, serializeTypeCurrentRPC));
     }
 
@@ -452,16 +491,17 @@ public class RemotingCommand {
 
         // 2> header data length
         byte[] headerData;
+        // header数据编码为byte数组
         headerData = this.headerEncode();
 
         length += headerData.length;
 
         // 3> body data length
         length += bodyLength;
-
+        // 申请 消息总长度 + header长度 + header内容  大小的byteBuffer
         ByteBuffer result = ByteBuffer.allocate(4 + length - bodyLength);
 
-        // length
+        // length：整个数据总长度
         result.putInt(length);
 
         // header length
