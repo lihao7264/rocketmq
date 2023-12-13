@@ -97,8 +97,9 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
      * nameserver地址集合
      */
     private final AtomicReference<List<String>> namesrvAddrList = new AtomicReference<List<String>>();
-    *
+    /**
      * 上次被选择的NameServer地址
+     */
     private final AtomicReference<String> namesrvAddrChoosed = new AtomicReference<String>();
     /**
      * NameServer的索引
